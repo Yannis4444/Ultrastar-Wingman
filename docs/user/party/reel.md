@@ -37,12 +37,17 @@ has landed.
 | **All songs** | Every song in the library, minus what a tag folds away |
 | **Favorites** | Only the songs you gave a heart |
 | **Wishlist** | Only wished songs, each with the same chance |
-| **Wishlist (weighted)** | Only wished songs, more wishes mean a better chance |
+| **Wishlist (weighted)** | Only wished songs, every wish adds to a song's chance |
 
-Weighted is the fair one for a full room. A song three people wished for has
-three times the chance of a song only one person wished for. Its line counts
-both numbers: the wished songs, and the wishes behind them. The wishes of a
-player hidden from the singer picker are not among them. See
+Weighted is the fair one for a full room. Every wish adds to a song's chance,
+so a song three people wished for comes up more often. Each further wish of the
+same person counts a little less, though. A long wishlist does not drown out a
+short one: one guest's single wish still stands a fair chance next to somebody's
+twenty. **Fair wishes** under **Karaoke** in **Settings** switches that off, and
+then every wish counts the same.
+
+Its line counts both numbers: the wished songs, and the wishes behind them. The
+wishes of a player hidden from the singer picker are not among them. See
 [Wish for a song](wishlist.md).
 
 A choice with nothing behind it cannot be picked. That is both wishlist choices
@@ -113,6 +118,13 @@ Wingman picks the song here, by the table above and as you see the library. A
 song hidden from you cannot win on the TV either. A choice with nothing behind
 it gets a sentence where the song would be, such as *The wishlist is empty. The
 reel has nothing to land on.*
+
+A song the TV's reel landed on and the room spun past comes up less often for
+the next half hour. Right after the spin it has a fifth of its chance, and it
+climbs back to the full chance over those thirty minutes. It is never left out,
+so **Spin again** can still land on it. Singing the song ends this. **Rest
+skipped songs** under **Karaoke** in **Settings** switches it off. The reel on
+**This screen** and the background music never do this.
 
 When the reel lands, the TV plays the song from where its singing starts, so the
 room hears what it picked. It keeps playing after you tap **Play** while the

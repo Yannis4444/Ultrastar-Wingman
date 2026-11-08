@@ -3221,6 +3221,10 @@ export type WishRead = {
      */
     count: number;
     /**
+     * Weight
+     */
+    weight: number;
+    /**
      * Latest
      */
     latest: string;

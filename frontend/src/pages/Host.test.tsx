@@ -164,6 +164,7 @@ function ranking(): (string | null)[][] {
 const WISHES: WishRead[] = [1, 2, 3, 4, 5].map((n) => ({
   song: { ...RHAPSODY, id: `usdb:w${n}`, title: `Wish ${n}` },
   count: 6 - n,
+  weight: 6 - n,
   latest: "2026-08-23T20:00:00Z",
   mine: false,
 }));

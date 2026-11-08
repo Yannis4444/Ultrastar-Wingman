@@ -25,7 +25,7 @@ from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.downloads import loudness_pass
 from ultrastar_wingman.events import event_bus
-from ultrastar_wingman.karaoke import selection, usdx_paths, usdx_window
+from ultrastar_wingman.karaoke import reel, selection, usdx_paths, usdx_window
 from ultrastar_wingman.music import service as music
 from ultrastar_wingman.players import service as players
 from ultrastar_wingman.songs import scanner
@@ -284,6 +284,9 @@ def fresh_selection_state() -> None:
     # And the idle time, which the devices watchdog writes from a setting at startup: a test
     # that shortened it must not shorten the next test's room.
     selection._idle_ttl = selection.DEFAULT_IDLE_TTL
+    # And the songs the reel on the host screen landed on, which weigh less for half an
+    # hour: a previous test's spins must not tilt this one's.
+    reel.forget_spins()
 
 
 @pytest.fixture(autouse=True)

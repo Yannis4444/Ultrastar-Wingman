@@ -78,7 +78,8 @@ interface SongReelProps {
   /**
    * What the covers flying past are drawn from. The reel picks among them at
    * random, duplicates and all — a song in here three times flies past about
-   * three times as often, which is what the weighted scope is. With nothing to
+   * three times as often, which is what the weighted scope's covers are (its
+   * winner is the caller's own draw). With nothing to
    * pick from, the winner stands in for the fillers.
    */
   fillers: SongRead[];

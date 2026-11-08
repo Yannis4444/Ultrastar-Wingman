@@ -1,7 +1,8 @@
 # Reel weighting
 
-*Design, 2026-11-08. Branch `feat/groups-reel-sfx`. Nothing of it is built yet: this document
-is what the implementation builds from, and every number and name in it is decided. The
+*Design, 2026-11-08. Branch `feat/groups-reel-sfx`. Built in the same round, as §7 describes
+it; this document is what the implementation was built from, and every number and name in it
+is decided. The
 user's request is quoted in §1; everything else is made here and open to a veto (§6 lists the
 ones that matter most). Where this document and the code disagree after the round, the code
 is right and this document is updated.*
@@ -423,7 +424,8 @@ migration.
     `karaoke.rest_skipped_songs` on, every candidate in `_spun_at` is multiplied by
     `rest_factor(rest_at - _spun_at[id])`. Then `ids = sorted(weights)` and
     `random.choices(ids, weights=[weights[i] for i in ids], k=1)[0]` — module `random`, as
-    today, so a test patches `reel.random.choices` the way it patched `choice`.
+    today, so a test patches `reel.random.choices` the way it patched `choice`. That draw is
+    its own helper, `_draw(weights) -> str`, which `pick_song` ends in.
   - `_spun_at`, `note_spun`, `clear_spun`, `forget_spins` (§5.5); the module docstring gains
     a paragraph on both rules, and its *Two callers, one picker* becomes the three it has (the
     selection, the selector's start button through it, and the background music). The
@@ -466,9 +468,14 @@ migration.
   song just passed over at the floor (frozen clock) and at 1 after 30 minutes; a `start_sing`
   of it clears the mark; the rest switch off leaves every non-weighted weight at 1; the
   background music's pick, and the selector's cancel button skipping it, never see a mark and
-  never make one.
+  never make one — that last one, with the music's fair-wishes draw beside it, in
+  `tests/test_music_state.py`, where the music's helpers are.
 - One distribution test under `random.seed(…)`: 10 000 weighted picks over §3.2's three
-  wishers land within a percentage point of 14.1 / 29.6 / 56.3.
+  wishers land within a percentage point of 14.1 / 29.6 / 56.3. They are 10 000 `reel._draw`
+  calls over the weights `reel._candidates` works out for the three wishers, after a seeded
+  `pick_song` is shown to land exactly where `_draw` does under the same seed: 10 000 whole
+  `pick_song` calls took 82 s for the same numbers (14.11 / 29.38 / 56.51 under seed
+  20261108, both ways).
 - `tests/test_settings_service.py`: both keys registered as booleans in **Karaoke**.
 
 ### 7.3 Frontend

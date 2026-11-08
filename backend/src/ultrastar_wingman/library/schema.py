@@ -19,6 +19,10 @@ class WishRead(BaseModel):
 
     song: SongRead
     count: int
+    # What this song's wishes weigh on *Wishlist (weighted)*: the count while fair wishes
+    # is off (`karaoke.weighting`). The phone's own reel draws with it, so the formula
+    # stays on the server.
+    weight: float
     latest: datetime
     # True when the caller is one of those `count` people.
     mine: bool

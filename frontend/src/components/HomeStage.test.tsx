@@ -344,6 +344,7 @@ test("a wished background song offers Remove from wishlist, the song modal's nam
         {
           song: BACKGROUND,
           count: 1,
+          weight: 1,
           mine: true,
           latest: "2026-08-23T20:00:00Z",
         },

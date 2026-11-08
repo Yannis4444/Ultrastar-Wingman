@@ -6,6 +6,7 @@ must not import.
 """
 
 import logging
+from collections import Counter
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,7 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.model import User, as_utc
 from ..events import PlaylistsChanged, WishlistUpdated, event_bus
+from ..karaoke.weighting import FAIR_WISHES, wish_weight
 from ..players.model import Player
+from ..settings import SettingsService
 from ..songs.model import Song
 from ..songs.schema import read_song
 from .model import Favorite, Playlist, PlaylistEntry, PlaylistMember, Wish
@@ -147,6 +150,41 @@ async def _aggregate(
     return count, None if latest is None else as_utc(latest)
 
 
+async def _weights(session: AsyncSession, caller_user_id: str | None) -> dict[str, float]:
+    """What every wished song weighs on *Wishlist (weighted)*, by song id.
+
+    With `karaoke.fair_wishes` on, one wish weighs `weighting.wish_weight(n)`, `n` being how
+    many wishes its owner holds — an account, or a guest's cookie as its own owner — and a
+    song weighs the sum of its wishes. Off, a song weighs its count, one per wish.
+
+    `n` is the owner's wishes under `_counted` (so a hidden player owns none in the room's
+    pool, but the caller's own count for the caller) whose song is still in the library. It
+    does not depend on what a tag hides from whoever reads: a weight is the same number on
+    every phone, and whatever a caller leaves out is dropped after the weights are known.
+    """
+    rows = (
+        await session.execute(
+            select(Wish.song_id, Wish.user_id, Wish.guest_id)
+            .join(Song, Song.id == Wish.song_id)
+            .where(_counted(caller_user_id))
+        )
+    ).all()
+    if not await SettingsService(session).get(FAIR_WISHES):
+        counts: dict[str, float] = {}
+        for song_id, _, _ in rows:
+            counts[song_id] = counts.get(song_id, 0.0) + 1.0
+        return counts
+    owners = [
+        ("user", user_id) if user_id is not None else ("guest", guest_id)
+        for _, user_id, guest_id in rows
+    ]
+    held = Counter(owners)
+    weights: dict[str, float] = {}
+    for (song_id, _, _), owner in zip(rows, owners, strict=True):
+        weights[song_id] = weights.get(song_id, 0.0) + wish_weight(held[owner])
+    return weights
+
+
 async def _broadcast(session: AsyncSession, song_id: str) -> None:
     """Announce a song's new wish count, as everybody counts it. `count` is 0 once the last
     counted wish for a song is gone — the UI has to drop the row."""
@@ -183,12 +221,14 @@ async def wishlist(
             .group_by(Wish.song_id)
         )
     }
+    weights = await _weights(session, user_id)
     # A wish whose song left the library keeps its row but drops out of the listing.
     songs = await session.scalars(select(Song).where(Song.id.in_(counts)))
     wishes = [
         WishRead(
             song=read_song(song),
             count=counts[song.id][0],
+            weight=weights.get(song.id, float(counts[song.id][0])),
             latest=counts[song.id][1],
             mine=song.id in mine,
         )
@@ -214,8 +254,15 @@ async def add_wish(
     await _broadcast(session, song.id)
     # Counted as the caller's own listing counts it, which a hidden caller's wish is part of.
     count, _ = await _aggregate(session, song.id, user_id)
+    weight = (await _weights(session, user_id)).get(song.id, float(count))
     # Nothing can be newer than the row just written, so this is the aggregate's `latest`.
-    return WishRead(song=read_song(song), count=count, latest=as_utc(wish.created_at), mine=True)
+    return WishRead(
+        song=read_song(song),
+        count=count,
+        weight=weight,
+        latest=as_utc(wish.created_at),
+        mine=True,
+    )
 
 
 async def remove_wish(

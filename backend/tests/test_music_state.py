@@ -6,6 +6,7 @@ an argument rather than something a test has to wait for.
 """
 
 import dataclasses
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ultrastar_wingman.karaoke import reel, selection
 from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.music import service
 from ultrastar_wingman.music import settings as music_settings
@@ -376,6 +378,84 @@ async def test_the_wishlist_scope_plays_what_the_room_wished_for(
     state = await service.read()
     assert state.track is not None
     assert state.track.song.id == wished
+
+
+def record_draws(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, float]]:
+    """Every draw the reel makes, its ids with their weights rounded to four places, landing
+    on the first id."""
+    draws: list[dict[str, float]] = []
+
+    def choices(
+        population: Sequence[str],
+        weights: Sequence[float] | None = None,
+        *,
+        cum_weights: Sequence[float] | None = None,
+        k: int = 1,
+    ) -> list[str]:
+        assert weights is not None
+        draws.append(
+            {song_id: round(weight, 4) for song_id, weight in zip(population, weights, strict=True)}
+        )
+        return [population[0]]
+
+    monkeypatch.setattr(reel.random, "choices", choices)
+    return draws
+
+
+async def test_the_weighted_scope_plays_with_fair_wishes(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """*Wishlist (weighted)* means one thing everywhere: one guest's two wishes weigh
+    (1 + ln 2) / 2 each, another guest's one wish 1."""
+    one = await add_song(session, tmp_path, 1)
+    two = await add_song(session, tmp_path, 2)
+    session.add_all(
+        [
+            Wish(song_id=one, guest_id="many"),
+            Wish(song_id=two, guest_id="many"),
+            Wish(song_id=two, guest_id="once"),
+        ]
+    )
+    await session.commit()
+    draws = record_draws(monkeypatch)
+    await enable(session, scope="weighted")
+    await register(session)
+
+    assert draws == [{one: 0.8466, two: 1.8466}]
+
+
+async def test_the_music_never_sees_a_skipped_song_s_mark_nor_makes_one(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The rest rule is the host spins' alone: the music's own pick, and the selector's
+    cancel button skipping to the next song, weigh a song the reel just passed over in full
+    and leave the marks as they found them."""
+    one = await add_song(session, tmp_path, 1)
+    two = await add_song(session, tmp_path, 2)
+    three = await add_song(session, tmp_path, 3)
+    reel.note_spun(one, START)
+    reel.note_spun(two, START)
+    marks = dict(reel._spun_at)
+    draws = record_draws(monkeypatch)
+    await enable(session)
+    await register(session)
+
+    playing = await service.read()
+    assert playing.track is not None and playing.track.song.id == one
+    await selection.button_pressed(session, session_factory, "cancel", skip_music=True)
+
+    skipped = await service.read()
+    assert skipped.track is not None and skipped.track.song.id == two
+    assert draws == [{one: 1.0, two: 1.0, three: 1.0}, {two: 1.0, three: 1.0}]
+    assert reel._spun_at == marks
 
 
 async def test_a_song_hidden_from_guests_is_never_picked(

@@ -339,7 +339,7 @@ async def open_selection(
         preview: _Preview | None = None
         if spin is not None:
             song = await reel.pick_song(
-                session, spin.scope, spin.viewer, playlist_id=spin.playlist_id
+                session, spin.scope, spin.viewer, playlist_id=spin.playlist_id, rest_at=now
             )
             if song is None:
                 raise EmptyPoolError(spin.scope)
@@ -382,6 +382,10 @@ async def open_selection(
             spin=spun,
             preview=preview,
         )
+        # Only now, with the selection carrying it: a pick the slots refused above was
+        # never on the TV, so the room passed nothing over.
+        if spun is not None:
+            reel.note_spun(song.id, now)
         if from_device:
             _refresh_auto_start(_selection, auto_start, session_factory)
         await _broadcast_locked()
@@ -397,7 +401,9 @@ async def respin(session: AsyncSession, token: str | None) -> SelectionRead:
     the first — the same rule the selector's start button follows (`button_pressed`).
 
     Nothing rules the song it just landed on out — the phone's own reel repeats too, and a
-    pool of one song has nothing else to offer. Raises `NoSelectionError`,
+    pool of one song has nothing else to offer. It is weighed down, never out: while
+    `karaoke.rest_skipped_songs` is on, the song the room just passed over weighs a fifth in
+    this very draw (`reel.pick_song`'s `rest_at`). Raises `NoSelectionError`,
     `NotTheOpenerError`, `NotASpinError` for a selection opened with a song, and
     `EmptyPoolError` when the scope has run dry since (the last wish taken back, the
     playlist emptied) — the selection stands as it was in that case.
@@ -1029,20 +1035,20 @@ async def _spin_without_selection_locked(
             "The player selector picks from a playlist but none is set: picking from all songs"
         )
         scope = "all"
-    song = await reel.pick_song(session, scope, _GUEST, playlist_id=playlist_id)
+    now = _now()
+    song = await reel.pick_song(session, scope, _GUEST, playlist_id=playlist_id, rest_at=now)
     if song is None and scope == "playlist":
         logger.info(
             "The player selector's playlist %s is gone or empty: picking from all songs",
             playlist_id,
         )
         scope, playlist_id = "all", None
-        song = await reel.pick_song(session, scope, _GUEST)
+        song = await reel.pick_song(session, scope, _GUEST, rest_at=now)
     if song is None:
         logger.info("The player selector's start button found no song to spin to (%s)", scope)
         return
     states = await _slot_states(session, [])
     _put_cards_on(states, without.cards, await _card_players(session, without.cards))
-    now = _now()
     _selection = _Selection(
         song=read_song(song),
         slots=states,
@@ -1062,6 +1068,7 @@ async def _spin_without_selection_locked(
             peak=song.replay_gain_peak,
         ),
     )
+    reel.note_spun(song.id, now)
     _refresh_auto_start(_selection, auto_start, session_factory)
     await _broadcast_locked()
 
@@ -1108,10 +1115,12 @@ async def _respin_locked(
     if selection.spin is None:
         raise NotASpinError
     spin = selection.spin
-    song = await reel.pick_song(session, spin.scope, spin.viewer, playlist_id=spin.playlist_id)
+    now = _now()
+    song = await reel.pick_song(
+        session, spin.scope, spin.viewer, playlist_id=spin.playlist_id, rest_at=now
+    )
     if song is None:
         raise EmptyPoolError(spin.scope)
-    now = _now()
     selection.song = read_song(song)
     selection.updated_at = now
     spin.id += 1
@@ -1122,6 +1131,9 @@ async def _respin_locked(
     spin.has_audio = song.audio_file is not None
     spin.gain_db = song.replay_gain_db
     spin.peak = song.replay_gain_peak
+    # The new landing gets its own mark; the song it replaced keeps the one it got when
+    # the reel landed on it, which is what weighed it down in this very draw.
+    reel.note_spun(song.id, now)
     _reschedule_auto_start(selection, auto_start, session_factory)
 
 

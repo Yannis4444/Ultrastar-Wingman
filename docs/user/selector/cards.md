@@ -128,7 +128,10 @@ Its line says: *A playlist that no longer exists falls back to all songs.* So
 does an empty one.
 
 The reel picks by the rules on [Let the reel pick](../party/reel.md), as a
-guest sees the library. A song a tag hides from guests cannot win.
+guest sees the library. A song a tag hides from guests cannot win. On **Wishlist
+(weighted)**, each further wish of the same person counts a little less. A song
+the reel landed on and the room spun past comes up less often for half an hour,
+the same as when a phone spins the TV.
 
 ## When the cancel button is pressed with nothing open
 

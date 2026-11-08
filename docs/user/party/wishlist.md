@@ -51,9 +51,9 @@ when it spins on the host screen. See
 
 A wish is a vote in two places.
 
-- **The reel.** **Wishlist (weighted)** gives a song one ticket per wish. A song
-  three people want has three times the chance of a song one person wants. See
-  [Let the reel pick](reel.md).
+- **The reel.** On **Wishlist (weighted)**, every wish adds to a song's chance.
+  Each further wish of the same person counts a little less, so a long wishlist
+  does not drown out a short one. See [Let the reel pick](reel.md).
 - **The host screen.** **Most wished** is the room's own running order.
 
 Starting a song takes it off the wishlist for everybody, whoever wished for it

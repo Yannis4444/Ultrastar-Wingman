@@ -7,6 +7,7 @@ fake USDX of `test_karaoke_api`, so a selection that starts a song really starts
 """
 
 import asyncio
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,7 @@ from ultrastar_wingman.auth import permissions
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.karaoke import reel, selection, service
 from ultrastar_wingman.karaoke.launcher import Launch
+from ultrastar_wingman.karaoke.weighting import FAIR_WISHES, REST_SKIPPED
 from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.settings import SettingsService
@@ -138,18 +140,49 @@ async def add_second_song(session: AsyncSession, configured: FakeUsdx) -> str:
 def pick_last(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     """Make the reel land on the last candidate, and record what it had to choose from.
 
-    The ids are sorted before the choice, so "the last one" is the greatest id whatever
-    SQLite hands back — and the recorded lists are what a scope's pool is, a song repeated
-    where it counts more than once.
+    The ids are sorted before the draw, so "the last one" is the greatest id whatever
+    SQLite hands back — and the recorded lists are what a scope's pool is, each song once.
+    The weights are left out on purpose: a test that only needs a predictable landing must
+    not care how the rest rule moved them between its own spins. The tests about the
+    weights record them with `record_draws`.
     """
     pools: list[list[str]] = []
 
-    def choice(candidates: list[str]) -> str:
-        pools.append(list(candidates))
-        return candidates[-1]
+    def choices(
+        population: Sequence[str],
+        weights: Sequence[float] | None = None,
+        *,
+        cum_weights: Sequence[float] | None = None,
+        k: int = 1,
+    ) -> list[str]:
+        pools.append(list(population))
+        return [population[-1]]
 
-    monkeypatch.setattr(reel.random, "choice", choice)
+    monkeypatch.setattr(reel.random, "choices", choices)
     return pools
+
+
+def record_draws(
+    monkeypatch: pytest.MonkeyPatch, land: Callable[[list[str]], str] | None = None
+) -> list[dict[str, float]]:
+    """Record every draw the reel makes as its ids with their weights, landing on the last
+    id — or on whatever `land` picks out of the sorted ids."""
+    draws: list[dict[str, float]] = []
+
+    def choices(
+        population: Sequence[str],
+        weights: Sequence[float] | None = None,
+        *,
+        cum_weights: Sequence[float] | None = None,
+        k: int = 1,
+    ) -> list[str]:
+        assert weights is not None
+        ids = list(population)
+        draws.append(dict(zip(ids, weights, strict=True)))
+        return [ids[-1] if land is None else land(ids)]
+
+    monkeypatch.setattr(reel.random, "choices", choices)
+    return draws
 
 
 async def close_selection(client: AsyncClient, token: str | bytes) -> Response:
@@ -1226,8 +1259,8 @@ async def test_every_scope_picks_out_of_its_own_pool(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """What each scope has to choose from, as the phone's own reel documents it: the hearts
-    of the caller, the wished songs once each or as often as they were wished for, and the
-    songs of one playlist."""
+    of the caller, the wished songs once each on both wishlist scopes — what a wish weighs is
+    the draw's weights, not a song named twice — and the songs of one playlist."""
     other = await add_second_song(session, configured)
     pools = pick_last(monkeypatch)
     assert (await client.put(f"/api/v1/favorites/{other}")).status_code == 204
@@ -1252,12 +1285,13 @@ async def test_every_scope_picks_out_of_its_own_pool(
     assert playlist["selection"]["song"]["id"] == song
     assert playlist["selection"]["spin"]["playlist_id"] == playlist_id
 
-    # The pools themselves: a wished song counts once on the wishlist and as often as it was
-    # wished for when weighted, and the candidates are sorted before every choice.
+    # The pools themselves, each song once and sorted before every draw: what a wish weighs
+    # on the weighted scope is the draw's weights, which the tests below the reel's rules
+    # look at.
     assert pools == [
         [other],
         sorted([song, other]),
-        sorted([song, song, other]),
+        sorted([song, other]),
         [song],
     ]
 
@@ -2554,3 +2588,202 @@ async def test_spinning_again_under_a_countdown_puts_it_on_the_clock_from_the_ne
     await selection.wait_for_auto_start()
     assert first.cancelled()
     assert not configured.argv_file.exists()
+
+
+# The reel's weights (docs/dev/reel-weighting.md). Each test switches off the rule it does
+# not look at, so the weights it asserts carry one rule alone.
+
+
+def rounded(draws: list[dict[str, float]]) -> list[dict[str, float]]:
+    return [{song_id: round(weight, 4) for song_id, weight in draw.items()} for draw in draws]
+
+
+async def press_start(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    """The selector's start button, set to spin a random song at a quiet room."""
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(mode="random"),
+    )
+
+
+async def test_a_weighted_spin_draws_with_fair_wishes(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The admin holds two wishes, so each weighs (1 + ln 2) / 2; a guest's one wish weighs
+    1 and adds to the song they share."""
+    await SettingsService(session).set(REST_SKIPPED, False)
+    other = await add_second_song(session, configured)
+    draws = record_draws(monkeypatch)
+    assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
+    assert (await client.post("/api/v1/wishlist", json={"song_id": other})).status_code == 201
+    session.add(Wish(song_id=song, guest_id="a-guest-cookie"))
+    await session.commit()
+
+    await open_spin(client, "weighted")
+
+    assert rounded(draws) == [{other: 0.8466, song: 1.8466}]
+
+
+async def test_a_phone_spin_and_a_device_spin_mark_the_song_they_landed_on(
+    client: AsyncClient,
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Marked once the selection carries the song, at the selection's own clock — and a
+    selection opened with a song marks nothing, because no reel landed on it."""
+    other = await add_second_song(session, configured)
+    record_draws(monkeypatch, land=lambda ids: ids[0])
+    clock = frozen_clock(monkeypatch)
+    phone_at = clock[0]
+
+    await open_spin(client, "all")
+    assert reel._spun_at == {min(song, other): phone_at}
+
+    await selection.close_selection(any_opener=True)
+    clock[0] += timedelta(minutes=1)
+    record_draws(monkeypatch)
+    await press_start(session, session_factory)
+    assert reel._spun_at == {min(song, other): phone_at, max(song, other): clock[0]}
+
+    await selection.close_selection(any_opener=True)
+    await open_selection(client, song)
+    assert reel._spun_at == {min(song, other): phone_at, max(song, other): clock[0]}
+
+
+async def test_a_respin_from_the_phone_weighs_the_song_passed_over_down(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The song the reel just landed on stands at the floor in the very next draw, and back
+    at its full weight once half an hour has gone by."""
+    await SettingsService(session).set(FAIR_WISHES, False)
+    other = await add_second_song(session, configured)
+    selection.set_idle_ttl(3600)
+    draws = record_draws(monkeypatch)
+    clock = frozen_clock(monkeypatch)
+    opened = await open_spin(client, "all")
+    landed = max(song, other)
+    # The first press lands the running reel, the second spins again at the same moment.
+    assert (await respin(client, opened["token"])).status_code == 200
+    assert (await respin(client, opened["token"])).status_code == 200
+
+    clock[0] += timedelta(minutes=30)
+    assert (await respin(client, opened["token"])).status_code == 200
+
+    assert rounded(draws) == [
+        {song: 1.0, other: 1.0},
+        {min(song, other): 1.0, landed: 0.2},
+        {song: 1.0, other: 1.0},
+    ]
+
+
+async def test_a_respin_from_the_start_button_weighs_the_song_passed_over_down(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nobody on a slot: the start button's press after the reel is down spins again, and
+    the same rule weighs the song it passed over — whoever opened the selection."""
+    await SettingsService(session).set(FAIR_WISHES, False)
+    other = await add_second_song(session, configured)
+    selection.set_idle_ttl(3600)
+    draws = record_draws(monkeypatch)
+    clock = frozen_clock(monkeypatch)
+    await press_start(session, session_factory)
+    # The first press after the spin lands the running reel, the next one spins again.
+    await press_start(session, session_factory)
+    await press_start(session, session_factory)
+
+    clock[0] += timedelta(minutes=30)
+    await press_start(session, session_factory)
+
+    assert rounded(draws) == [
+        {song: 1.0, other: 1.0},
+        {min(song, other): 1.0, max(song, other): 0.2},
+        {song: 1.0, other: 1.0},
+    ]
+    respun = await selection.current_selection()
+    assert respun is not None and respun.spin is not None and respun.spin.id == 3
+
+
+async def test_singing_a_song_clears_its_mark(
+    client: AsyncClient,
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """The room chose it: a reel that landed on it passed nothing over."""
+    yannis = await add_player(client, "Yannis")
+    opened = await open_spin(client, "all", slots=[{"color": "blue", "player_id": yannis["id"]}])
+    assert set(reel._spun_at) == {song}
+
+    response = await client.post("/api/v1/karaoke/selection/start", json={"token": opened["token"]})
+
+    assert response.status_code == 202, response.text
+    assert reel._spun_at == {}
+    await wait_for(configured.argv_file)
+    await service.wait_for_sing_end()
+
+
+async def test_a_forced_sing_clears_the_mark_of_its_own_song_alone(
+    client: AsyncClient,
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """The song modal's Sing taking the machine over the very spin that landed on the song:
+    every way a song is sung goes through `start_sing`, and only the song sung is chosen —
+    another song the reel passed over keeps its mark."""
+    yannis = await add_player(client, "Yannis")
+    reel.note_spun("local:passed-over", datetime.now(UTC))
+    await open_spin(client, "all")
+    assert set(reel._spun_at) == {"local:passed-over", song}
+
+    forced = await client.post(
+        "/api/v1/karaoke/sing",
+        json={
+            "song_id": song,
+            "slots": [{"color": "blue", "player_id": yannis["id"]}],
+            "force": True,
+        },
+    )
+
+    assert forced.status_code == 202, forced.text
+    assert set(reel._spun_at) == {"local:passed-over"}
+    await wait_for(configured.argv_file)
+    await service.wait_for_sing_end()
+
+
+async def test_with_the_rest_switch_off_every_song_weighs_the_same(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The marks are still made — switching the rule back on finds the evening's spins —
+    but no draw weighs them."""
+    await SettingsService(session).set(REST_SKIPPED, False)
+    other = await add_second_song(session, configured)
+    draws = record_draws(monkeypatch)
+    frozen_clock(monkeypatch)
+    opened = await open_spin(client, "all")
+    assert (await respin(client, opened["token"])).status_code == 200
+    assert (await respin(client, opened["token"])).status_code == 200
+
+    assert rounded(draws) == [{song: 1.0, other: 1.0}, {song: 1.0, other: 1.0}]
+    assert set(reel._spun_at) == {max(song, other)}

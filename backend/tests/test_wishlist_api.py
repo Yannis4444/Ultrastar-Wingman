@@ -4,7 +4,7 @@ The guest cookie is the interesting part — it replaces the old app's IP-keyed 
 so these tests pin down when it is issued and what logging in does with it.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 
 import pytest
@@ -26,6 +26,7 @@ from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_MAX_AGE, GUEST_COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.karaoke import reel
+from ultrastar_wingman.karaoke.weighting import FAIR_WISHES
 from ultrastar_wingman.library import service as library
 from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.players.model import Player
@@ -649,27 +650,153 @@ async def test_logging_in_brings_a_hidden_player_s_wishes_back(
         assert wishlist_updates(broadcast_events) == [(SONG, 1)]
 
 
+def record_draws(monkeypatch: pytest.MonkeyPatch) -> list[list[tuple[str, float]]]:
+    """Record every draw the reel makes as its sorted ids, each with its weight rounded to
+    four places, and land on the first."""
+    draws: list[list[tuple[str, float]]] = []
+
+    def choices(
+        population: Sequence[str],
+        weights: Sequence[float] | None = None,
+        *,
+        cum_weights: Sequence[float] | None = None,
+        k: int = 1,
+    ) -> list[str]:
+        assert weights is not None
+        draws.append(
+            [
+                (song_id, round(weight, 4))
+                for song_id, weight in zip(population, weights, strict=True)
+            ]
+        )
+        return [population[0]]
+
+    monkeypatch.setattr(reel.random, "choices", choices)
+    return draws
+
+
+async def set_fair_wishes(admin: AsyncClient, on: bool) -> None:
+    response = await admin.patch(f"/api/v1/settings/{FAIR_WISHES}", json={"value": on})
+    assert response.status_code == 200, response.text
+
+
+def weighed(rows: list[dict[str, Any]]) -> dict[str, tuple[int, float]]:
+    """Song id to its count and its weight, rounded to four places."""
+    return {row["song"]["id"]: (row["count"], round(row["weight"], 4)) for row in rows}
+
+
+async def test_a_wish_weighs_less_the_more_wishes_its_owner_holds(
+    app_with_songs: FastAPI,
+) -> None:
+    """Fair wishes, on by default: one wish of somebody holding `n` weighs (1 + ln n) / n,
+    a guest's cookie is an owner of its own, and a song two owners wished for weighs both of
+    their wishes. Off, a song weighs its count again."""
+    await authenticate_admin(app_with_songs)
+    alice = await account(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await wish(alice, OTHER_SONG)
+        await wish(alice, THIRD_SONG)
+        created = await wish(browser, SONG)
+
+        # The answer to the wish weighs it the way the listing does.
+        assert round(created["weight"], 4) == 1.6995
+        # Alice holds three, so each of hers weighs (1 + ln 3) / 3; the guest holds one.
+        expected = {SONG: (2, 1.6995), OTHER_SONG: (1, 0.6995), THIRD_SONG: (1, 0.6995)}
+        assert weighed(await wishes(browser)) == expected
+        # The same numbers on every phone: a weight does not depend on who reads.
+        assert weighed(await wishes(admin)) == expected
+
+        await set_fair_wishes(admin, False)
+
+        assert weighed(await wishes(browser)) == {
+            SONG: (2, 2.0),
+            OTHER_SONG: (1, 1.0),
+            THIRD_SONG: (1, 1.0),
+        }
+
+
+async def test_a_hidden_player_s_wishes_count_towards_nobody_s_number_of_wishes(
+    app_with_songs: FastAPI,
+) -> None:
+    """Hidden, Alice owns no wishes in the room's pool, so the one she shares with the guest
+    weighs the guest's alone — and her own phone weighs her own wishes in, as its count
+    already does."""
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await wish(alice, OTHER_SONG)
+        await wish(browser, SONG)
+
+        await set_hidden(admin, alice_player, True)
+
+        assert weighed(await wishes(browser)) == {SONG: (1, 1.0)}
+        assert weighed(await wishes(alice)) == {SONG: (2, 1.8466), OTHER_SONG: (1, 0.8466)}
+
+
+async def test_a_song_gone_from_the_library_leaves_its_wisher_s_number_of_wishes(
+    app_with_songs: FastAPI,
+) -> None:
+    """A wish whose song left the library is nobody's wish in the reel, so the wisher's
+    other wishes weigh as if they held one fewer."""
+    async with guest(app_with_songs) as browser:
+        await wish(browser, SONG)
+        await wish(browser, OTHER_SONG)
+        assert weighed(await wishes(browser)) == {SONG: (1, 0.8466), OTHER_SONG: (1, 0.8466)}
+
+        async with factory(app_with_songs)() as session:
+            song = await session.get(Song, OTHER_SONG)
+            assert song is not None
+            await session.delete(song)
+            await session.commit()
+
+        assert weighed(await wishes(browser)) == {SONG: (1, 1.0)}
+
+
+async def test_the_weighted_reel_draws_with_the_wishlist_s_weights(
+    app_with_songs: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every scope but the weighted one weighs each song the same; the weighted one weighs
+    it what the listing says, and the switch off is one per wish."""
+    draws = record_draws(monkeypatch)
+    await authenticate_admin(app_with_songs)
+    alice = await account(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await wish(alice, OTHER_SONG)
+        await wish(browser, SONG)
+
+        async with factory(app_with_songs)() as session:
+            await reel.pick_song(session, "wishlist", tags.GUEST_VIEWER)
+            await reel.pick_song(session, "weighted", tags.GUEST_VIEWER)
+        await set_fair_wishes(admin, False)
+        async with factory(app_with_songs)() as session:
+            await reel.pick_song(session, "weighted", tags.GUEST_VIEWER)
+
+    assert draws == [
+        [(OTHER_SONG, 1.0), (SONG, 1.0)],
+        [(OTHER_SONG, 0.8466), (SONG, 1.8466)],
+        [(OTHER_SONG, 1.0), (SONG, 2.0)],
+    ]
+
+
 async def test_no_spin_picks_from_a_hidden_player_s_wishes(
     app_with_songs: FastAPI, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The top wish (the selector's start button) and both wishlist scopes of the reel (the
     TV's spin, the start button's random song, the background music) read the wishlist as
-    nobody in particular, so a hidden player's own wish is never in them."""
-    pools: list[list[str]] = []
+    nobody in particular, so a hidden player's own wish is never in them — nor in anybody's
+    weight, because it counts towards nobody's number of wishes."""
+    pools = record_draws(monkeypatch)
 
-    def choice(candidates: list[str]) -> str:
-        pools.append(list(candidates))
-        return candidates[0]
-
-    monkeypatch.setattr(reel.random, "choice", choice)
-
-    async def top_and_pools() -> tuple[str | None, list[list[str]]]:
+    async def top_and_pools() -> tuple[str | None, list[list[tuple[str, float]]]]:
         pools.clear()
         async with factory(app_with_songs)() as session:
             top = await reel.top_wish(session, tags.GUEST_VIEWER)
             await reel.pick_song(session, "wishlist", tags.GUEST_VIEWER)
             await reel.pick_song(session, "weighted", tags.GUEST_VIEWER)
-        return None if top is None else top.id, list(pools)
+        return None if top is None else top.id, [list(pool) for pool in pools]
 
     await authenticate_admin(app_with_songs)
     alice, alice_player = await singer(app_with_songs, "alice")
@@ -680,17 +807,26 @@ async def test_no_spin_picks_from_a_hidden_player_s_wishes(
         await wish(friend, SONG)
         # Last, so it wins a tie of counts on being the newer wish.
         await wish(browser, OTHER_SONG)
-    # The pools as `pick_song` sorts them: local:aaaa, local:cccc, usdb:1234.
+    # The pools as `pick_song` sorts them: local:aaaa, local:cccc, usdb:1234. Alice holds two
+    # wishes, so each of hers weighs (1 + ln 2) / 2 on the weighted scope; her friend and the
+    # guest one each, which weighs 1.
+    # Rounded to four places, as `record_draws` records them.
     everybody = (
         SONG,
-        [[OTHER_SONG, THIRD_SONG, SONG], [OTHER_SONG, THIRD_SONG, SONG, SONG]],
+        [
+            [(OTHER_SONG, 1.0), (THIRD_SONG, 1.0), (SONG, 1.0)],
+            [(OTHER_SONG, 1.0), (THIRD_SONG, 0.8466), (SONG, 1.8466)],
+        ],
     )
 
     assert await top_and_pools() == everybody
 
     async with admin_client(app_with_songs) as admin:
         await set_hidden(admin, alice_player, True)
-    assert await top_and_pools() == (OTHER_SONG, [[OTHER_SONG, SONG], [OTHER_SONG, SONG]])
+    assert await top_and_pools() == (
+        OTHER_SONG,
+        [[(OTHER_SONG, 1.0), (SONG, 1.0)], [(OTHER_SONG, 1.0), (SONG, 1.0)]],
+    )
 
     async with admin_client(app_with_songs) as admin:
         await set_hidden(admin, alice_player, False)

@@ -10,11 +10,16 @@ line inside its group. See [Settings](index.md) for how the page works.
 |---|---|---|
 | **Players** | How many people sing at once. Ultrastar Deluxe plays 1, 2, 3, 4, or 6 on one screen | 4 |
 | **Slot 1** to **Slot n** | The microphone color of each slot, out of Ultrastar Deluxe's own sixteen | blue, red, green, yellow |
+| **Fair wishes** | On **Wishlist (weighted)**, each further wish of the same person counts a little less, so a long wishlist does not drown out a short one. Off, every wish counts the same | on |
+| **Rest skipped songs** | A song the reel on the host screen landed on, and the room spun past, comes up less often for the next half hour. It is never left out | on |
 
-Both are one setting seen from two sides. The count says how many slots the
-singer picker offers, and each slot names a color of its own. Two slots cannot
-share a color. Give a slot a color another one already has and the two swap. See
-[Sing a song](../party/sing.md).
+**Players** and the slots are one setting seen from two sides. The count says
+how many slots the singer picker offers, and each slot names a color of its own.
+Two slots cannot share a color. Give a slot a color another one already has and
+the two swap. See [Sing a song](../party/sing.md).
+
+**Fair wishes** and **Rest skipped songs** decide what the reel lands on. See
+[Let the reel pick](../party/reel.md).
 
 ## Host
 

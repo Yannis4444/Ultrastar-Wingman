@@ -670,7 +670,15 @@ test("the wish control wears the three-bar wishlist glyphs", async () => {
 
   listWishlist.mockResolvedValue({
     data: {
-      wishes: [{ song, count: 1, mine: true, latest: "2026-08-23T20:00:00Z" }],
+      wishes: [
+        {
+          song,
+          count: 1,
+          weight: 1,
+          mine: true,
+          latest: "2026-08-23T20:00:00Z",
+        },
+      ],
     },
   });
   renderDetails();
@@ -756,7 +764,15 @@ test("a caption names the control, not its state", async () => {
   asAccount(["wishlist.view", "wishlist.add"]);
   listWishlist.mockResolvedValue({
     data: {
-      wishes: [{ song, count: 1, mine: true, latest: "2026-08-23T20:00:00Z" }],
+      wishes: [
+        {
+          song,
+          count: 1,
+          weight: 1,
+          mine: true,
+          latest: "2026-08-23T20:00:00Z",
+        },
+      ],
     },
   });
   renderDetails();

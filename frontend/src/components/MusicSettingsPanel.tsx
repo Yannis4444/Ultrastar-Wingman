@@ -74,7 +74,7 @@ export default function MusicSettingsPanel({
       <PrivateSettingRow
         id="music-scope"
         label="Pick songs from"
-        description="Every song, the wishlist (each song once, or as often as it was wished for), or one playlist."
+        description="Every song, the wishlist (each song once, or weighted by its wishes), or one playlist."
         saved={savedField === "scope"}
       >
         {(inputId, describedBy) => (
