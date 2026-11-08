@@ -949,81 +949,83 @@ export default function Achievements() {
                   {/* Last on the page, the way a playlist's "Save a copy" is:
                       carrying achievements between parties is a thing a host
                       does now and then, not the errand they came for (§7). */}
-                  <h2 className="achievements-heading">
-                    <Icon
-                      name="archive"
-                      className="achievements-heading-icon"
-                    />
-                    Import and export
-                  </h2>
-                  <p className="section-note">
-                    An archive carries achievements from one Wingman to another:
-                    a file per achievement, with its conditions and its picture.
-                    Importing one adds what this party has not got and updates
-                    what it has.
-                  </p>
-
-                  {/* The pair of glyphs is the point: in and out, said by the
-                      arrows rather than read off two similar labels. */}
-                  <div className="achievements-share">
-                    <label className="button achievements-share-action">
-                      <Icon name="upload" />
-                      <span>
-                        {bring.isPending ? "Importing…" : "Import archive…"}
-                      </span>
-                      <input
-                        type="file"
-                        className="visually-hidden"
-                        accept=".gz,.tgz,application/gzip"
-                        aria-label="Import archive"
-                        disabled={bring.isPending}
-                        onChange={(event) => bringIn(event.target)}
+                  <section className="achievements-transfer">
+                    <h2 className="achievements-heading">
+                      <Icon
+                        name="archive"
+                        className="achievements-heading-icon"
                       />
-                    </label>
-                    <button
-                      type="button"
-                      className="button achievements-share-action"
-                      onClick={() => {
-                        send.reset();
-                        setPicking(true);
-                      }}
-                    >
-                      <Icon name="download" />
-                      <span>Export…</span>
-                    </button>
-                  </div>
-
-                  {imported !== null && (
-                    <p className="achievements-share-result" role="status">
-                      {importSummary(imported, nameOf)}
+                      Import and export
+                    </h2>
+                    <p className="section-note">
+                      An archive carries achievements from one Wingman to
+                      another: a file per achievement, with its conditions and
+                      its picture. Importing one adds what this party has not
+                      got and updates what it has.
                     </p>
-                  )}
 
-                  {importError !== null && (
-                    <p
-                      className="error-notice achievements-notice"
-                      role="alert"
-                    >
-                      {importError}
-                    </p>
-                  )}
+                    {/* The pair of glyphs is the point: in and out, said by the
+                      arrows rather than read off two similar labels. */}
+                    <div className="achievements-share">
+                      <label className="button achievements-share-action">
+                        <Icon name="upload" />
+                        <span>
+                          {bring.isPending ? "Importing…" : "Import archive…"}
+                        </span>
+                        <input
+                          type="file"
+                          className="visually-hidden"
+                          accept=".gz,.tgz,application/gzip"
+                          aria-label="Import archive"
+                          disabled={bring.isPending}
+                          onChange={(event) => bringIn(event.target)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="button achievements-share-action"
+                        onClick={() => {
+                          send.reset();
+                          setPicking(true);
+                        }}
+                      >
+                        <Icon name="download" />
+                        <span>Export…</span>
+                      </button>
+                    </div>
 
-                  {picking && (
-                    <ExportPanel
-                      achievements={drawn}
-                      pending={send.isPending}
-                      error={
-                        send.isError
-                          ? complaint(
-                              send.error,
-                              "Could not make that archive.",
-                            )
-                          : null
-                      }
-                      onExport={(ids) => send.mutate(ids)}
-                      onClose={() => setPicking(false)}
-                    />
-                  )}
+                    {imported !== null && (
+                      <p className="achievements-share-result" role="status">
+                        {importSummary(imported, nameOf)}
+                      </p>
+                    )}
+
+                    {importError !== null && (
+                      <p
+                        className="error-notice achievements-notice"
+                        role="alert"
+                      >
+                        {importError}
+                      </p>
+                    )}
+
+                    {picking && (
+                      <ExportPanel
+                        achievements={drawn}
+                        pending={send.isPending}
+                        error={
+                          send.isError
+                            ? complaint(
+                                send.error,
+                                "Could not make that archive.",
+                              )
+                            : null
+                        }
+                        onExport={(ids) => send.mutate(ids)}
+                        onClose={() => setPicking(false)}
+                      />
+                    )}
+                  </section>
                 </>
               )}
             </>

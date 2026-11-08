@@ -214,6 +214,16 @@
    carrying them in. They share the row evenly and wrap at a narrow width
    rather than shrinking their labels. */
 
+/* The page's foot. `#root` reserves exactly the nav's height and no air above
+   it (index.css), so a page that ends in a filled box brings its own: 24px,
+   what the playlist page's foot keeps under *Delete playlist*. On the section,
+   never on one button, so whatever ends it — the buttons, the import's answer
+   or its refusal — stands that far off the nav: their own bottom margins
+   collapse into this one. */
+.achievements-transfer {
+  margin-bottom: 24px;
+}
+
 .achievements-share {
   display: flex;
   flex-wrap: wrap;
