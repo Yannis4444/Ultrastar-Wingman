@@ -603,11 +603,12 @@
 }
 
 /* A 720p rail cannot hold the QR, five ranks and three wishes at a size the
-   room can read. One of the two lists has to give up its tail, and it is the
-   wishes: the standing keeps its full five (measured: QR + 5 ranks + 2 wishes
-   fills a 720p rail exactly, with nothing clipped), and a shorter "top N" is
-   still the truth. Shrinking the type past its floors is not an option — the
-   whole page is written to be read from the sofa.
+   room can read. The wishes give up their tail here, and the standing ends
+   after the last rank that still fits whole (`SessionLeaderboard.css`; measured
+   2026-11-08 with the music row: four ranks and one wish at 1280x720, five and
+   one at 1366x768). A shorter "top N" is still the truth. Shrinking the type
+   past its floors is not an option — the whole page is written to be read from
+   the sofa.
    Two-column layout only: below 1101px the rail is under the stage and the page
    scrolls, so there is room for every row and nothing to buy by hiding them. */
 @media (max-height: 820px) and (min-width: 1101px) {

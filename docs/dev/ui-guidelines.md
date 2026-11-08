@@ -888,7 +888,12 @@ saved) where a jump to the top would throw away the place they were working in.
   before its word, 16px between entries — `Space` Play or pause, `N` Skip, `↑` `↓` Volume, `F`
   Full screen — listing only keys whose control is drawn. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
-  `SongCover`, `SessionLeaderboard`). `LastSong` keeps `ScoreSummary` — the numbers as
+  `SongCover`, `SessionLeaderboard`). **The standing ends after a whole row**, at every height and
+  whoever has sung: `SessionLeaderboard` draws five at most, all five share the rail's height out
+  with the wishes as before, and the list — a wrapping flex column under `overflow: hidden` — sends a
+  row it cannot hold whole into a second column out of sight; never a fade over a row still half
+  there, and no line counting the rest, a shorter top N being the truth as it is for the wishes.
+  `LastSong` keeps `ScoreSummary` — the numbers as
   `IconStat`s with their words, named, no Songs; read across a room, the phones' overview
   would be too small — in the naming column beside the cover and under the artist line, wrapping there instead of
   standing as a column of its own; the cover keeps its size, and the marker strip and the

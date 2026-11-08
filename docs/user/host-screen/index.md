@@ -53,7 +53,8 @@ The rail holds three blocks, top to bottom:
 - **Most wished**, what the room has asked for.
 
 **Tonight** appears once two songs of this party have been scored, and it lists
-the five strongest singers. The three words beside the heading say how they are
+the five strongest singers. A screen too short for five shows as many as fit,
+and never half a singer. The three words beside the heading say how they are
 ranked: **best score**, **average**, or **sings**. Click one to change it. The
 first three places carry a highlighted rank number.
 
