@@ -28,6 +28,7 @@ from ultrastar_wingman.achievements.schema import (
     Metric,
     SelectorClause,
     SongSelector,
+    parse_combine,
     parse_definition,
 )
 from ultrastar_wingman.auth.model import as_utc
@@ -1053,6 +1054,193 @@ def test_a_session_condition_over_scores_that_belong_to_no_party_starts_at_zero(
     assert outcome.progress_session_id is None
 
 
+# ------------------------------------------------------------- any one of the conditions
+
+# The shape the feature was asked for with: a score of exactly 1111, or of exactly 2222, or
+# of exactly 3333 — "a repdigit" — which no list of conditions that all have to hold can say.
+EITHER_NUMBER = [
+    condition(metric="any_score", comparator="=", value=1111),
+    condition(metric="any_score", comparator="=", value=2222),
+    condition(metric="any_score", comparator="=", value=3333),
+]
+
+
+def test_any_holds_when_one_condition_does_and_all_still_wants_every_one() -> None:
+    rows = [row(2222), row(5000, sing_id="s2")]
+
+    assert evaluate(EITHER_NUMBER, rows, "any").earned is True
+    assert evaluate(EITHER_NUMBER, rows, "all").earned is False
+    # And `all` is still what nothing said means.
+    assert evaluate(EITHER_NUMBER, rows) == evaluate(EITHER_NUMBER, rows, "all")
+
+
+def test_any_is_not_held_while_no_condition_is() -> None:
+    outcome = evaluate(EITHER_NUMBER, [row(2223), row(1110, sing_id="s2")], "any")
+
+    assert outcome == Outcome(False, None, None, None, None)
+
+
+def test_any_holds_beside_a_condition_nothing_can_ever_satisfy() -> None:
+    """An alternative no score can meet — a song that is not there, a pattern that matches no
+    title — is one route closed, not the achievement: the others still earn it."""
+    no_such_song = condition(
+        metric="number_of_scores", comparator=">=", value=1, songs={"ids": ["usdb:nowhere"]}
+    )
+    no_such_title = condition(
+        metric="number_of_scores",
+        comparator=">=",
+        value=1,
+        match={"clauses": [{"field": "title", "op": "regex", "value": "a^"}]},
+    )
+    rows = [row(2222)]
+
+    outcome = evaluate([no_such_song, no_such_title, *EITHER_NUMBER], rows, "any")
+    assert outcome.earned is True
+    assert evaluate([no_such_song, no_such_title], rows, "any").earned is False
+
+
+def test_an_achievement_that_asks_for_nothing_is_earned_by_nobody_either_way() -> None:
+    assert evaluate([], [row(9000)], "any") == Outcome(False, None, None, None)
+
+
+def test_any_session_condition_still_has_to_hold_inside_one_party() -> None:
+    """One route is enough, but a route that asks for one evening still asks for one: three
+    scores spread over two parties are not three scores in a party."""
+    three_tonight = condition(scope="session", metric="number_of_scores", comparator=">=", value=3)
+    never = condition(metric="any_score", comparator=">=", value=10_001)
+    rows = [
+        row(1000, sing_id="s1", session_id="party-a"),
+        row(1000, sing_id="s2", session_id="party-a"),
+        row(1000, sing_id="s3", session_id="party-b"),
+    ]
+
+    assert evaluate([three_tonight, never], rows, "any").earned is False
+
+
+def test_any_session_conditions_each_take_a_party_of_their_own() -> None:
+    """Under `all` two session-scoped conditions want one party that satisfies both. Under
+    `any` there is nothing for two alternatives to agree on: each holds or not in a party of
+    its own, and the badge names the earliest party one of them held in."""
+    three_songs = condition(scope="session", metric="different_songs", comparator=">=", value=3)
+    a_9000 = condition(scope="session", metric="any_score", comparator=">=", value=9000)
+    rows = [
+        row(5000, sing_id="s1", session_id="party-a", song_id="usdb:1"),
+        row(5000, sing_id="s2", session_id="party-a", song_id="usdb:2"),
+        row(5000, sing_id="s3", session_id="party-a", song_id="usdb:3"),
+        row(9500, sing_id="s4", session_id="party-b", song_id="usdb:1"),
+    ]
+
+    assert evaluate([three_songs, a_9000], rows, "all").earned is False
+    outcome = evaluate([a_9000, three_songs], rows, "any")
+    assert outcome.earned is True
+    # `a_9000` is listed first and held in party-b; `three_songs` held earlier, in party-a.
+    assert outcome.session_id == "party-a"
+
+
+def test_any_earned_through_a_global_condition_names_no_party() -> None:
+    outcome = evaluate(
+        [
+            condition(scope="session", metric="number_of_scores", comparator=">=", value=5),
+            condition(metric="any_score", comparator=">=", value=9000),
+        ],
+        [row(9100, session_id="party-a")],
+        "any",
+    )
+
+    assert outcome.earned is True
+    assert outcome.session_id is None
+
+
+def test_any_progress_is_the_most_complete_condition() -> None:
+    """The mirror of `all`'s weakest: one route is enough, so the bar shows the closest."""
+    ten_scores = condition(metric="number_of_scores", comparator=">=", value=10)
+    four_songs = condition(metric="different_songs", comparator=">=", value=4)
+    rows = [
+        row(1000, sing_id="s1", song_id="usdb:1"),
+        row(1000, sing_id="s2", song_id="usdb:2"),
+        row(1000, sing_id="s3", song_id="usdb:2"),
+    ]
+
+    weakest = evaluate([ten_scores, four_songs], rows, "all")
+    closest = evaluate([ten_scores, four_songs], rows, "any")
+
+    assert (weakest.progress_current, weakest.progress_target) == (3, 10)
+    assert (closest.progress_current, closest.progress_target) == (2, 4)
+
+
+def test_any_progress_tie_keeps_the_earlier_condition() -> None:
+    first = condition(metric="number_of_scores", comparator=">=", value=4)
+    second = condition(metric="different_songs", comparator=">=", value=2)
+    rows = [row(1000, sing_id="s1"), row(1000, sing_id="s2")]
+
+    outcome = evaluate([first, second], rows, "any")
+
+    # 2 of 4 and 1 of 2 are both a half; the first one listed is the one remembered.
+    assert (outcome.progress_current, outcome.progress_target) == (2, 4)
+
+
+def test_any_session_progress_names_the_party_the_closest_condition_was_counted_in() -> None:
+    """A session-scoped condition is counted in the player's newest party while it holds in
+    none — `all`'s rule, condition by condition — and that party goes out with the number."""
+    five_tonight = condition(scope="session", metric="number_of_scores", comparator=">=", value=5)
+    ten_overall = condition(metric="number_of_scores", comparator=">=", value=10)
+    rows = [
+        row(1000, sing_id="s1", session_id="party-a"),
+        row(1000, sing_id="s2", session_id="party-a"),
+        row(1000, sing_id="s3", session_id="party-a"),
+        row(1000, sing_id="s4", session_id="party-b"),
+    ]
+
+    outcome = evaluate([five_tonight, ten_overall], rows, "any")
+
+    # 1 of 5 tonight against 4 of 10 overall: the global one is closer and names no party.
+    assert (outcome.progress_current, outcome.progress_target) == (4, 10)
+    assert outcome.progress_session_id is None
+
+    two_tonight = condition(scope="session", metric="number_of_scores", comparator=">=", value=2)
+    outcome = evaluate([ten_overall, two_tonight], rows, "any")
+    # Held in party-a (three scores), so that is the party it is measured in, and it is full.
+    assert outcome.earned is True
+    assert (outcome.progress_current, outcome.progress_target) == (3, 2)
+    assert outcome.progress_session_id == "party-a"
+
+    ten_tonight = condition(scope="session", metric="number_of_scores", comparator=">=", value=10)
+    nowhere = condition(metric="any_score", comparator=">=", value=10_001)
+    outcome = evaluate([nowhere, ten_tonight], rows, "any")
+    # Held nowhere: tonight's party, the newest, not the best one (party-a had three).
+    assert (outcome.progress_current, outcome.progress_target) == (1, 10)
+    assert outcome.progress_session_id == "party-b"
+
+
+def test_an_earned_any_badge_shows_a_route_that_earned_it() -> None:
+    """Once one condition holds the bar is about the routes that earned it — never a
+    half-full bar of a route nobody took beside a badge that is already won — and when none
+    of those has a target there is no bar at all."""
+    exactly = condition(metric="any_score", comparator="=", value=2222)
+    ten_scores = condition(metric="number_of_scores", comparator=">=", value=10)
+    three_scores = condition(metric="number_of_scores", comparator=">=", value=3)
+    rows = [row(2222), row(1000, sing_id="s2")]
+
+    by_a_number = evaluate([ten_scores, exactly], rows, "any")
+    assert by_a_number.earned is True
+    assert (by_a_number.progress_current, by_a_number.progress_target) == (None, None)
+
+    rows.append(row(1000, sing_id="s3"))
+    by_a_count = evaluate([ten_scores, exactly, three_scores], rows, "any")
+    assert (by_a_count.progress_current, by_a_count.progress_target) == (3, 3)
+
+
+def test_a_stored_combine_that_is_neither_word_is_never_satisfied(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level(logging.WARNING):
+        assert parse_combine("the-broken-one", "some") is None
+    assert "the-broken-one" in caplog.text
+    assert parse_combine("fine", "all") == "all"
+    assert parse_combine("fine", "any") == "any"
+    assert parse_combine("broken", None) is None
+
+
 # ------------------------------------------------------------------------ the DB pass
 
 
@@ -1099,8 +1287,12 @@ async def add_achievement(
     definition: list[dict[str, Any]],
     *,
     enabled: bool = True,
+    combine: str | None = None,
 ) -> None:
     """One hand-built achievement, on a catalogue holding nothing else.
+
+    `combine` left out is the column's own default — what every row written before migration
+    0038 holds.
 
     Migrations 0023, 0030 and 0031 seed the set Wingman ships, and a pass looks at every
     enabled one — so they are dropped first. What they mean is `test_achievements_triggers`'
@@ -1108,15 +1300,16 @@ async def add_achievement(
     pass wrote.
     """
     await session.execute(delete(Achievement).where(Achievement.built_in.is_(True)))
-    session.add(
-        Achievement(
-            id=achievement_id,
-            name=achievement_id,
-            color="gold",
-            enabled=enabled,
-            definition=definition,
-        )
+    achievement = Achievement(
+        id=achievement_id,
+        name=achievement_id,
+        color="gold",
+        enabled=enabled,
+        definition=definition,
     )
+    if combine is not None:
+        achievement.combine = combine
+    session.add(achievement)
     await session.commit()
 
 
@@ -1399,6 +1592,44 @@ async def test_an_unreadable_definition_earns_nobody_and_breaks_no_other_row(
     assert broken.achievement_id == "broken"
     assert broken.earned_at is None
     assert (broken.progress_current, broken.progress_target) == (None, None)
+
+
+EITHER_NUMBER_STORED = [
+    {"metric": "any_score", "comparator": "=", "value": 1111},
+    {"metric": "any_score", "comparator": "=", "value": 2222},
+]
+
+
+@pytest.mark.parametrize(
+    ("combine", "earned"),
+    [
+        # The column's own default: what a row written before migration 0038 holds, and it
+        # means what the list always meant.
+        (None, []),
+        ("all", []),
+        ("any", ["either-number"]),
+        # Written straight into the database, past every door that validates it.
+        ("some", []),
+    ],
+)
+async def test_a_pass_reads_how_the_stored_conditions_combine(
+    session: AsyncSession, combine: str | None, earned: list[str]
+) -> None:
+    await add_achievement(session, "either-number", EITHER_NUMBER_STORED, combine=combine)
+    await add_song(session, "usdb:1")
+    await add_score(
+        session,
+        sing_id="s1",
+        song_id="usdb:1",
+        session_id="party-a",
+        player_id=PLAYER,
+        score=2222,
+        at=START,
+    )
+
+    assert await service.evaluate_player(session, PLAYER, now=START) == earned
+    (stored,) = await player_rows(session, PLAYER)
+    assert (stored.earned_at is not None) == bool(earned)
 
 
 async def test_evaluate_all_covers_every_player_that_has_a_score(session: AsyncSession) -> None:

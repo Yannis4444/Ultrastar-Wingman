@@ -482,3 +482,49 @@ async def test_0031_takes_only_its_own_row_back_off(tmp_path: Path) -> None:
     # highest of them rather than back in the gap.
     await _alembic(database_url, "head")
     assert [row[0] for row in await _catalogue(database_url)] == kept_ids + [new_id]
+
+
+async def _combines(database_url: str) -> dict[str, str]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = await connection.execute(text("SELECT id, combine FROM achievements"))
+        return {str(row[0]): str(row[1]) for row in rows}
+    finally:
+        await engine.dispose()
+
+
+async def test_0038_reads_every_achievement_already_there_as_all(tmp_path: Path) -> None:
+    """Every definition written before 0038 is a list of conditions that all have to hold, and
+    the column it adds says so of every row already in the table — the built-ins and the
+    host's own alike — so nothing changes meaning. Stepping back takes the column off again
+    and leaves the rows."""
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'combine.db'}"
+
+    await _alembic(database_url, "0037")
+    await _execute(
+        database_url,
+        "INSERT INTO achievements "
+        "(id, name, description, color, hidden, enabled, built_in, sort_order, definition, "
+        "created_at) "
+        "VALUES ('a-host-s-own', 'Own', '', 'gold', 0, 1, 0, 99, '[]', '2026-09-01 20:00:00')",
+        {},
+    )
+
+    await _alembic(database_url, "head")
+    combines = await _combines(database_url)
+    assert sorted(combines) == sorted([built_in.id for built_in in BUILT_INS] + ["a-host-s-own"])
+    assert set(combines.values()) == {"all"}
+
+    await _alembic(database_url, "0037", down=True)
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            columns = [
+                row[1] for row in await connection.execute(text("PRAGMA table_info(achievements)"))
+            ]
+            count = await connection.scalar(text("SELECT COUNT(*) FROM achievements"))
+    finally:
+        await engine.dispose()
+    assert "combine" not in columns
+    assert count == len(BUILT_INS) + 1

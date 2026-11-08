@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from .schema import (
     MAX_SUBJECT_LENGTH,
     PATTERN_FLAGS,
+    Combine,
     Comparator,
     Condition,
     ScoreFilter,
@@ -76,7 +77,8 @@ class Outcome:
     progress_target: int | None
     # Which party `progress_current` was measured in, when the condition it came from was
     # session-scoped — the party that satisfied every session-scoped condition, or the
-    # player's *newest* party while no party has (`_progress`). `None` when the progress is
+    # player's *newest* party while no party has (`_progress`); for an `any` achievement the
+    # party the closest condition was measured in (`_evaluate_any`). `None` when the progress is
     # a global condition's, which belongs to no single party.
     #
     # The engine never asks whether that party is the one still going: nothing in here
@@ -95,22 +97,31 @@ NOT_EARNED = Outcome(
 )
 
 
-def evaluate(conditions: Sequence[Condition], rows: Sequence[ScoreRow]) -> Outcome:
+def evaluate(
+    conditions: Sequence[Condition], rows: Sequence[ScoreRow], combine: Combine = "all"
+) -> Outcome:
     """Whether these conditions hold over these scores, and how far along they are.
 
-    All of them must hold. The session-scoped ones must hold within one and the same party —
-    a `GROUP BY session HAVING …`, not one party per condition — while the global ones are
-    checked over everything, so an achievement mixing both means "this much tonight, by
-    somebody who has also done that much overall".
+    With `combine="all"` — what every definition meant before an achievement could say
+    otherwise — all of them must hold. The session-scoped ones must hold within one and the
+    same party — a `GROUP BY session HAVING …`, not one party per condition — while the global
+    ones are checked over everything, so an achievement mixing both means "this much tonight,
+    by somebody who has also done that much overall".
+
+    With `combine="any"` one of them holding is enough — see `_evaluate_any`.
     """
     if not conditions:
         # An achievement that asks for nothing is not something anybody can earn. Vacuous
         # truth would hand it to every player who ever sang, which is the one way a
-        # half-written definition could do real damage.
+        # half-written definition could do real damage. In both modes: `any(())` is False
+        # anyway, but the rule is this sentence and not an accident of it.
         return NOT_EARNED
 
-    session_conditions = [condition for condition in conditions if condition.scope == "session"]
     sessions = _by_session(rows)
+    if combine == "any":
+        return _evaluate_any(conditions, rows, sessions)
+
+    session_conditions = [condition for condition in conditions if condition.scope == "session"]
 
     earned_in: str | None = None
     for session_id, session_rows in sessions.items():
@@ -139,6 +150,87 @@ def evaluate(conditions: Sequence[Condition], rows: Sequence[ScoreRow]) -> Outco
         progress_current=current,
         progress_target=target,
         progress_session_id=progress_session,
+    )
+
+
+def _evaluate_any(
+    conditions: Sequence[Condition],
+    rows: Sequence[ScoreRow],
+    sessions: dict[str, list[ScoreRow]],
+) -> Outcome:
+    """`combine="any"`: earned the moment one condition holds.
+
+    The session rule stays honest, one condition at a time: a session-scoped condition still
+    has to hold inside **one** party, and it is that condition's own party — there is nothing
+    for two alternatives to agree on, so they never have to share one. A global condition is
+    checked over everything, as ever. "A score of exactly 1111, or exactly 2222, or …" is
+    earned by whichever of them somebody sang first.
+
+    `session_id` is the earliest party in which a session-scoped condition holds, the party it
+    was earned in; `None` when only global conditions hold, which belong to no single party.
+
+    Progress is the **most** complete condition, the mirror of `_progress`'s weakest: one
+    route is enough, so the closest one is the honest number. A session-scoped condition is
+    measured in the party it holds in, or the player's newest party while it holds in none —
+    `_progress`'s rule, condition by condition — and `progress_session_id` is the party the
+    winning condition was measured in. Once the achievement is earned only the conditions
+    that hold are looked at, so the number beside the badge is one of the routes that earned
+    it; when none of those has a target there is no bar, rather than a half-full bar of a
+    route nobody took beside a badge that is already won.
+    """
+    # Each condition that holds, and the party it holds in (`None` for a global one).
+    holding: dict[int, str | None] = {}
+    for index, condition in enumerate(conditions):
+        if condition.scope == "session":
+            party = next(
+                (
+                    session_id
+                    for session_id, session_rows in sessions.items()
+                    if _holds(condition, session_rows)
+                ),
+                None,
+            )
+            if party is not None:
+                holding[index] = party
+        elif _holds(condition, rows):
+            holding[index] = None
+
+    earned = bool(holding)
+    # Parties in the order they were sung, so "earliest" is a position and not a guess.
+    order = {session_id: position for position, session_id in enumerate(sessions)}
+    parties = [party for party in holding.values() if party is not None]
+    earned_in = min(parties, key=order.__getitem__) if parties else None
+
+    newest = next(reversed(sessions), None)
+    closest: tuple[float, int, int, str | None] | None = None
+    for index, condition in enumerate(conditions):
+        if earned and index not in holding:
+            continue
+        target = _target(condition)
+        if target is None:
+            continue
+        progress_session: str | None = None
+        if condition.scope == "session":
+            progress_session = holding.get(index, newest)
+            current = (
+                0
+                if progress_session is None
+                else _measure(condition, sessions[progress_session]) or 0
+            )
+        else:
+            current = _measure(condition, rows) or 0
+        fraction = min(current, target) / target
+        # Strictly more, so a tie keeps the earlier condition and a re-run of an unchanged
+        # record never rewrites the row — `_progress`'s strictly less, turned round.
+        if closest is None or fraction > closest[0]:
+            closest = (fraction, current, target, progress_session)
+
+    return Outcome(
+        earned=earned,
+        session_id=earned_in,
+        progress_current=None if closest is None else closest[1],
+        progress_target=None if closest is None else closest[2],
+        progress_session_id=None if closest is None else closest[3],
     )
 
 
@@ -353,8 +445,8 @@ def _progress(
     sessions: dict[str, list[ScoreRow]],
     earned_in: str | None,
 ) -> tuple[int | None, int | None, str | None]:
-    """How far along the achievement is: its least complete condition, and the party that
-    number was measured in.
+    """How far along an `all` achievement is: its least complete condition, and the party
+    that number was measured in. (`any` is the mirror image, in `_evaluate_any`.)
 
     All of them have to hold, so the weakest is the honest number. Only a condition compared
     with `>` or `>=` has one at all — there is no progressing toward *fewer*, and a bar that

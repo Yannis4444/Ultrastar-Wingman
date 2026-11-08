@@ -328,6 +328,18 @@
   margin: 16px 16px 0 16px;
 }
 
+/* The conditions' own *All of them / Any of them* header: on the blocks' 16px
+   edge like the outer Add, above the first block's own padding. */
+.condition-combine-outer {
+  margin: 16px 16px 0 16px;
+}
+
+/* The song rules' 12px from their header, rather than the select's own margin
+   and a whole block's padding stacked into one gap. */
+.condition-combine-outer + .condition-block {
+  padding-top: 12px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .condition-pill-text {
     transition: none;

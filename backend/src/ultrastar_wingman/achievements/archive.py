@@ -21,11 +21,14 @@ invites, and a rejection that names the key is one keystroke away from a fix.
 would otherwise be a way to mint an undeletable row. Writing `"built_in"` into the JSON is
 therefore a rejection like any other unknown key, rather than a field with no effect.
 
-**A built-in's `definition` is read but never applied.** What one of the shipped achievements
-asks for is `builtin.py`'s, and `service.import_archive` leaves those ids' stored conditions
-alone. The format still carries the field — an export is a faithful copy of the
-row, which is what makes the round trip work — it simply has no effect on a built-in, and
-that is where an archive would otherwise be a way past the 409 `PATCH` gives.
+**A built-in's `definition` is read but never applied**, and neither is its `combine`. What one
+of the shipped achievements asks for is `builtin.py`'s, and `service.import_archive` leaves
+those ids' stored conditions alone. The format still carries both fields — an export is a
+faithful copy of the row, which is what makes the round trip work — they simply have no effect
+on a built-in, and that is where an archive would otherwise be a way past the 409 `PATCH` gives.
+
+**`combine` may be left out** and then means `all`, so an archive exported before the field
+existed imports exactly as it did; an export always writes it.
 
 **Reading is the defensive half**, because the input is a file somebody uploaded:
 
@@ -54,7 +57,13 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints, V
 
 from ..images import IMAGE_MEDIA_TYPES, MAX_IMAGE_BYTES
 from ..tags.schema import TagColor
-from .schema import AchievementDescription, AchievementIcon, AchievementName, Condition
+from .schema import (
+    AchievementDescription,
+    AchievementIcon,
+    AchievementName,
+    Combine,
+    Condition,
+)
 
 # The upload itself. Icons are capped at 5 MB apiece by `images.py`, so this is a few dozen
 # of them plus every JSON file beside them — far more than a catalogue ever is, and small
@@ -173,6 +182,10 @@ class AchievementFile(BaseModel):
     # Left out by a hand-written file: a new achievement lands at the end of the catalogue
     # and an existing one keeps the place it already has. An export always writes it.
     sort_order: int | None = None
+    # How the conditions combine. Defaulted to `all` because that is what every definition
+    # meant before an achievement could say otherwise: an archive exported before the field
+    # existed — or a hand-written file that leaves it out — means exactly what it always did.
+    combine: Combine = "all"
     definition: list[Condition]
 
 
@@ -204,6 +217,8 @@ class ArchiveEntry:
     enabled: bool
     sort_order: int
     definition: list[dict[str, Any]]
+    # The raw column, like `definition`, and for the same reason.
+    combine: str = "all"
     icon_image: ArchiveImage | None = None
 
 
@@ -283,6 +298,9 @@ def dump_file(entry: ArchiveEntry) -> bytes:
         "hidden": entry.hidden,
         "enabled": entry.enabled,
         "sort_order": entry.sort_order,
+        # Always written, `all` included, right above the conditions it is about: a person
+        # reading the file sees how they combine before reading them.
+        "combine": entry.combine,
         "definition": entry.definition,
     }
     return (json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8")

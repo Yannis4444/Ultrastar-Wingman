@@ -39,8 +39,11 @@ Wingman's back.
 
 ## What a condition says
 
-An achievement is a list of conditions, and all of them have to hold. Tap
-**Add condition** and one block appears, numbered, with
+An achievement is a list of conditions. Once there are two or more,
+**Conditions that have to hold** above them says **All of them** (each one has
+to come true) or **Any of them** (one is enough, and every condition after the
+first then reads *"Or, …"*). Tap **Add condition** and one block appears,
+numbered, with
 :wingman-close: **Remove condition** at its corner. A fresh block reads
 *"Over all time, some score of 9000 or more."*, so most achievements change two
 or three boxes.
@@ -55,7 +58,8 @@ The block below builds the sentence at the top of it, box by box.
 
 **All time** or **One party**. The first looks at everything the singer ever
 did. The second has to come true inside a single evening. If several conditions
-say **One party**, they all have to come true in the same one.
+say **One party** and all of them have to hold, they all have to come true in
+the same one.
 
 A **One party** condition also counts differently on a singer's own page: its
 bar is about the evening being sung, so it starts again at zero between

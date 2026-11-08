@@ -3,7 +3,11 @@ import { useId, useState } from "react";
 import type { Condition, SelectorClause, SongRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
 import {
+  COMBINE_FROM,
   COMBINE_LABELS,
+  COMBINES,
+  type Combine,
+  combinesAsAny,
   COMPARATOR_LABELS,
   COMPARATORS,
   CONDITION_SCOPES,
@@ -36,6 +40,11 @@ import "./ConditionBuilder.css";
 interface ConditionBuilderProps {
   value: Condition[];
   onChange: (conditions: Condition[]) => void;
+  /** Whether all of the conditions have to hold or any one of them is enough
+   *  (`AchievementRead.combine`). Left out, it is `all` — what a list of
+   *  conditions always meant. */
+  combine?: Combine;
+  onCombineChange?: (combine: Combine) => void;
   /** Draw the conditions as they read and not as boxes: one of the built-in
    *  achievements asks what Wingman says it asks, and the backend refuses a
    *  definition on one with a 409. A control that failed on Save would be a
@@ -281,15 +290,24 @@ function valueFor(
  * controls at all. A definition on one of the shipped built-ins is a 409, and a
  * refusal a reader only meets after pressing Save is a bug in this project's
  * book — so the form says it beforehand instead.
+ *
+ * `combine` is the list's own header, the song rules' *All of them / Any of
+ * them* select one level up: drawn from two conditions on, because one
+ * condition has nothing to be combined with. A stored `any` survives a list
+ * that shrank to one and is there again when a second condition is added.
+ * Under `any` every block after the first is headed *"Or, …"*.
  */
 export default function ConditionBuilder({
   value,
   onChange,
+  combine = "all",
+  onCombineChange,
   readOnly = false,
 }: ConditionBuilderProps) {
   // The radio groups of one block must not answer to the radios of another, and
   // two builders could in principle share a document.
   const group = useId();
+  const either = combinesAsAny(combine, value.length);
 
   function update(index: number, next: Condition) {
     onChange(value.map((condition, i) => (i === index ? next : condition)));
@@ -336,7 +354,9 @@ export default function ConditionBuilder({
               <h3 className="condition-title">Condition {index + 1}</h3>
               <Icon name="lock" className="condition-locked" />
             </div>
-            <p className="condition-sentence">{conditionSentence(condition)}</p>
+            <p className="condition-sentence">
+              {conditionSentence(condition, either && index > 0)}
+            </p>
           </div>
         ))}
       </div>
@@ -344,6 +364,27 @@ export default function ConditionBuilder({
 
   return (
     <div className="condition-builder">
+      {/* The switch for the whole list, above its first block — the song
+          rules' own header, one level up. */}
+      {value.length >= COMBINE_FROM && (
+        <label className="condition-field condition-combine-outer">
+          <span>Conditions that have to hold</span>
+          <select
+            className="text-input text-input-quiet"
+            value={combine}
+            onChange={(event) =>
+              onCombineChange?.(event.target.value as Combine)
+            }
+          >
+            {COMBINES.map((option) => (
+              <option key={option} value={option}>
+                {COMBINE_LABELS[option]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {value.map((condition, index) => {
         const mode = songMode(condition);
         const problem = conditionProblem(condition);
@@ -368,7 +409,9 @@ export default function ConditionBuilder({
 
             {/* What the four selects add up to, in one sentence. It is what
                 tells a host they built the thing they meant to build. */}
-            <p className="condition-sentence">{conditionSentence(condition)}</p>
+            <p className="condition-sentence">
+              {conditionSentence(condition, either && index > 0)}
+            </p>
 
             {/* ------------------------------------------------------ scope */}
             <fieldset className="condition-pills">
@@ -520,15 +563,15 @@ export default function ConditionBuilder({
                       update(index, {
                         ...condition,
                         match: {
-                          combine: event.target.value as "all" | "any",
+                          combine: event.target.value as Combine,
                           clauses,
                         },
                       })
                     }
                   >
-                    {(["all", "any"] as const).map((combine) => (
-                      <option key={combine} value={combine}>
-                        {COMBINE_LABELS[combine]}
+                    {COMBINES.map((option) => (
+                      <option key={option} value={option}>
+                        {COMBINE_LABELS[option]}
                       </option>
                     ))}
                   </select>

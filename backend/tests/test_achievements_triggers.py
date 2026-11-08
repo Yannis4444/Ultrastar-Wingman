@@ -560,6 +560,52 @@ async def test_an_edited_definition_is_recomputed_for_everybody(
     assert await earned_of(session, yannis_id) == set()
 
 
+async def test_a_changed_combine_is_recomputed_for_everybody(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """Whether all of the conditions have to hold or any one of them changes who holds the
+    badge as surely as a raised number does, so a PATCH naming nothing but `combine` is a pass
+    like any other edit — both ways."""
+    await drop_built_ins(session)
+    yannis_id = await add_player_row(session, "Yannis")
+    await add_song(session, "usdb:1", "Artist")
+    await add_score(
+        session,
+        sing_id="s1",
+        song_id="usdb:1",
+        session_id="party-a",
+        player_id=yannis_id,
+        score=2222,
+        at=START,
+    )
+    created = await client.post(
+        "/api/v1/achievements",
+        json={
+            "name": "Either Number",
+            "color": "gold",
+            "definition": [
+                {"metric": "any_score", "comparator": "=", "value": 1111},
+                {"metric": "any_score", "comparator": "=", "value": 2222},
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    achievement_id = created.json()["id"]
+    await service.wait_for_passes()
+    assert await earned_of(session, yannis_id) == set()
+
+    to_any = await client.patch(f"/api/v1/achievements/{achievement_id}", json={"combine": "any"})
+    assert to_any.status_code == 200, to_any.text
+    assert to_any.json()["combine"] == "any"
+    await service.wait_for_passes()
+    assert await earned_of(session, yannis_id) == {achievement_id}
+
+    back = await client.patch(f"/api/v1/achievements/{achievement_id}", json={"combine": "all"})
+    assert back.status_code == 200, back.text
+    await service.wait_for_passes()
+    assert await earned_of(session, yannis_id) == set()
+
+
 async def test_switching_the_feature_back_on_recomputes_everybody(
     client: AsyncClient, session: AsyncSession
 ) -> None:

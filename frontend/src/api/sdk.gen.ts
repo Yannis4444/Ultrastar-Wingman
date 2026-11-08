@@ -1426,7 +1426,9 @@ export const deleteAchievement = <ThrowOnError extends boolean = false>(options:
  * only write that touches those conditions is `POST /achievements/{id}/reset`, which puts
  * the shipped ones back. A `definition` repeating what the row already holds is let through
  * as the no-op it is, so a client that sends the whole achievement back unchanged is not
- * refused for a field it never meant to touch.
+ * refused for a field it never meant to touch. `combine` — whether all of the conditions
+ * have to hold or any one of them — is half of what it asks for and is held to the same
+ * rule.
  *
  * 409 rather than 422: the body is one the condition models parsed happily, and what
  * refuses it is the row it was sent to — the same reasoning as the 409 on deleting a

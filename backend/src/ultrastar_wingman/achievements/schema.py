@@ -77,7 +77,12 @@ Metric = Literal[
 
 Comparator = Literal[">", ">=", "=", "<=", "<"]
 
+# Two things combine this way, both "every one of them" or "one of them is enough": the clauses
+# of a song selector (`SongSelector.combine`), and the conditions of an achievement
+# (`Achievement.combine`, `evaluate.evaluate`).
 Combine = Literal["all", "any"]
+
+COMBINES: tuple[Combine, ...] = ("all", "any")
 
 # Spelled the way `evaluate.ScoreRow` spells its columns, which is what lets a clause read
 # its field straight off a row. They are the fields `SongRead` already carries.
@@ -331,7 +336,8 @@ class SongSelector(BaseModel):
 
 
 class Condition(BaseModel):
-    """One thing that has to be true. An achievement is a list of them, all of which hold.
+    """One thing that has to be true. An achievement is a list of them, all of which hold —
+    or, for one whose `combine` is `any`, at least one of which does.
 
     `value` is a whole number: scores are, counts are, and an average is floored before it
     is compared, so a fractional target could only ever mean the number next to it.
@@ -393,6 +399,10 @@ class AchievementRead(BaseModel):
     # `TagRead.permissions`. What a hidden achievement asks for is the surprise `hidden`
     # exists to keep, so it is not handed to the user page of somebody who could edit it.
     definition: list[Condition] | None = None
+    # How the conditions of `definition` combine — `all` of them, or `any` one — and filled
+    # exactly when `definition` is: it is half of what the achievement asks for, so it is kept
+    # from every answer the definition is kept from.
+    combine: Combine | None = None
 
 
 class PlayerAchievementRead(BaseModel):
@@ -496,6 +506,7 @@ def read_achievement(
         holder_count=None if mask else holder_count,
         # Never on a masked row, and never on the event bus either — that one is anonymous.
         definition=parse_definition(achievement.id, achievement.definition) if definition else None,
+        combine=parse_combine(achievement.id, achievement.combine) if definition else None,
     )
 
 
@@ -515,3 +526,17 @@ def parse_definition(achievement_id: str, definition: object) -> list[Condition]
     except ValidationError as error:
         logger.warning("achievement %s has an unreadable definition: %s", achievement_id, error)
         return None
+
+
+def parse_combine(achievement_id: str, combine: object) -> Combine | None:
+    """The stored `combine` column, or `None` when it is neither `all` nor `any`.
+
+    The same contract as `parse_definition`: every way in validates the value, so anything
+    else was written straight into the database, and an achievement whose conditions combine
+    in a way nobody can say is never satisfied rather than read as one of the two.
+    """
+    for known in COMBINES:
+        if combine == known:
+            return known
+    logger.warning("achievement %s: %r is neither 'all' nor 'any'", achievement_id, combine)
+    return None

@@ -42,6 +42,10 @@ export type AchievementCreate = {
      * Definition
      */
     definition: Array<Condition>;
+    /**
+     * Combine
+     */
+    combine?: 'all' | 'any';
 };
 
 /**
@@ -167,6 +171,10 @@ export type AchievementRead = {
      * Definition
      */
     definition?: Array<Condition> | null;
+    /**
+     * Combine
+     */
+    combine?: 'all' | 'any' | null;
 };
 
 /**
@@ -254,6 +262,10 @@ export type AchievementUpdate = {
      * Definition
      */
     definition?: Array<Condition> | null;
+    /**
+     * Combine
+     */
+    combine?: 'all' | 'any' | null;
 };
 
 /**
@@ -522,7 +534,8 @@ export type CompleteLoginRequest = {
 /**
  * Condition
  *
- * One thing that has to be true. An achievement is a list of them, all of which hold.
+ * One thing that has to be true. An achievement is a list of them, all of which hold —
+ * or, for one whose `combine` is `any`, at least one of which does.
  *
  * `value` is a whole number: scores are, counts are, and an average is floored before it
  * is compared, so a fractional target could only ever mean the number next to it.
@@ -6635,7 +6648,7 @@ export type UpdateAchievementErrors = {
      */
     404: unknown;
     /**
-     * A definition on one of the built-in achievements.
+     * A definition, or a combine, that would change one of the built-in achievements.
      */
     409: unknown;
     /**

@@ -233,6 +233,9 @@ it("creates an achievement with exactly what the form was left on", async () => 
     definition: [
       { scope: "global", metric: "any_score", comparator: ">=", value: 9000 },
     ],
+    // One condition: nothing to combine, so the select was never drawn and
+    // the achievement asks for all of them, as one always did.
+    combine: "all",
   });
   // And the reader is on the achievement that now exists.
   expect(
@@ -304,6 +307,57 @@ it("sends the conditions when one of them is edited", async () => {
       },
     ],
   });
+});
+
+it("sends how the conditions combine, and nothing else, when that is all that changed", async () => {
+  const either = [
+    condition({ comparator: "=", value: 1111 }),
+    condition({ comparator: "=", value: 2222 }),
+  ];
+  updateAchievement.mockResolvedValue({
+    data: achievementRead({ definition: either, combine: "any" }),
+  });
+  renderEditor({ achievements: [achievementRead({ definition: either })] });
+
+  await screen.findByDisplayValue("Golden Voice");
+  expect(
+    screen.getByText("All of them have to hold before anybody earns it."),
+  ).toBeInTheDocument();
+  // Nothing changed yet, so nothing to save.
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+  fireEvent.change(screen.getByLabelText("Conditions that have to hold"), {
+    target: { value: "any" },
+  });
+  // The note and the headings say what it now means before it is saved.
+  expect(
+    screen.getByText(
+      "Any one of them is enough: whoever meets one of these earns it.",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Or, over all time, some score of exactly 2222."),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(updateAchievement).toHaveBeenCalled());
+  expect(updateAchievement.mock.calls[0][0].body).toEqual({ combine: "any" });
+});
+
+it("counts going back to how they were combined as nothing changed", async () => {
+  const either = [condition(), condition({ value: 9500 })];
+  renderEditor({
+    achievements: [achievementRead({ definition: either, combine: "any" })],
+  });
+
+  await screen.findByDisplayValue("Golden Voice");
+  const select = screen.getByLabelText("Conditions that have to hold");
+  expect(select).toHaveValue("any");
+
+  fireEvent.change(select, { target: { value: "all" } });
+  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  fireEvent.change(select, { target: { value: "any" } });
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 });
 
 it("refuses to save a condition the backend would reject", async () => {
@@ -526,6 +580,38 @@ it("draws a built-in's conditions as locked, not as controls that fail", async (
   expect(
     screen.getByText(/cannot be changed. The same badge means the same thing/),
   ).toBeInTheDocument();
+});
+
+it("locks how a built-in's conditions combine and never sends it", async () => {
+  updateAchievement.mockResolvedValue({
+    data: builtIn({ name: "Goldene Stimme" }),
+  });
+  renderEditor({
+    achievements: [
+      builtIn({
+        definition: [condition(), condition({ metric: "number_of_sings" })],
+      }),
+    ],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Golden Voice");
+  expect(
+    screen.queryByLabelText("Conditions that have to hold"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/^All of them have to hold before anybody earns it\./),
+  ).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Goldene Stimme" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(updateAchievement).toHaveBeenCalled());
+  expect(updateAchievement.mock.calls[0][0].body).toEqual({
+    name: "Goldene Stimme",
+  });
 });
 
 it("puts a built-in back the way Wingman ships it, once it is confirmed", async () => {

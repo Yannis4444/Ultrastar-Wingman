@@ -1,7 +1,8 @@
 """The `achievements` and `player_achievements` tables.
 
 An achievement is presentation (name, description, icon, colour, the three flags) plus one
-JSON `definition`: the list of conditions, all of which must hold. The definition is never
+JSON `definition`: the list of conditions — all of which must hold, or any one of them, as
+`combine` says. The definition is never
 queried in SQL — it is evaluated in Python against the scores a player already has
 (`evaluate.py`), so a table per condition would buy nothing and cost a migration every time
 an operator is added. The same JSON is what the export archive carries, which is what makes
@@ -68,6 +69,13 @@ class Achievement(Base):
     # and parsed on the way out: the column is storage, and one row somebody hand-edited
     # into a shape the models refuse must not break the pass for every other achievement.
     definition: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    # How the conditions combine: `all` of them have to hold, or `any` one is enough
+    # (`schema.Combine`). Its own column rather than a second shape of `definition`, so the
+    # definition stays the one list it has always been — in the API, in an archive and in
+    # every row written before migration 0038, which reads `all` and means what it meant.
+    # Parsed on the way out like the definition (`schema.parse_combine`): a value somebody
+    # wrote straight into the database is "never satisfied", never an exception.
+    combine: Mapped[str] = mapped_column(String(8), default="all", server_default=text("'all'"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -93,7 +101,8 @@ class PlayerAchievement(Base):
     # The party a session-scoped achievement was earned in. NULL for a global-only one, which
     # was earned over the whole record and belongs to no single party.
     session_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    # Where the player stands on the achievement's least complete condition. Both NULL when
+    # Where the player stands on the achievement's least complete condition — its most
+    # complete one when the conditions combine as `any`. Both NULL when
     # no condition of it is progressible (see `evaluate._progress`) — there is no progressing
     # toward *fewer*, and a bar that fills as somebody gets worse would be a lie.
     progress_current: Mapped[int | None] = mapped_column(Integer, nullable=True)

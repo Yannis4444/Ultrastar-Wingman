@@ -239,6 +239,7 @@ MAXIMAL: dict[str, Any] = {
     "color": "gold",
     "hidden": True,
     "enabled": False,
+    "combine": "any",
     "definition": [
         {
             "scope": "session",
@@ -330,6 +331,7 @@ def test_the_json_is_one_a_person_can_read_and_edit() -> None:
         "hidden",
         "enabled",
         "sort_order",
+        "combine",
         "definition",
     ]
 
@@ -395,6 +397,7 @@ async def test_an_achievement_with_every_field_set_comes_back_column_for_column(
             "icon": None,
             "hidden": False,
             "enabled": True,
+            "combine": "all",
             "definition": [],
         },
     )
@@ -451,6 +454,7 @@ async def test_an_archive_may_rename_a_built_in_but_never_re_condition_one(
             "builtin-score-9000",
             name="Golden Larynx",
             color="pink",
+            combine="any",
             definition=[{"scope": "global", "metric": "any_score", "comparator": ">=", "value": 1}],
         ),
     )
@@ -462,6 +466,8 @@ async def test_an_archive_may_rename_a_built_in_but_never_re_condition_one(
     assert stored["builtin-score-9000"]["name"] == "Golden Larynx"
     assert stored["builtin-score-9000"]["color"] == "pink"
     assert stored["builtin-score-9000"]["definition"] == before["builtin-score-9000"]["definition"]
+    # And how they combine is left alone with them: `any` in the file, `all` in the row.
+    assert stored["builtin-score-9000"]["combine"] == "all"
     # Still one of the shipped set: the flag is the row's, never the archive's.
     row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
     assert row["built_in"] is True
@@ -557,7 +563,8 @@ async def test_an_id_wingman_ships_comes_back_as_a_built_in(instance: Instance) 
     data = tar_gz(
         [
             json_member(
-                "builtin-score-9000", one_achievement("builtin-score-9000", name="Golden Voice")
+                "builtin-score-9000",
+                one_achievement("builtin-score-9000", name="Golden Voice", combine="any"),
             )
         ]
     )
@@ -570,6 +577,38 @@ async def test_an_id_wingman_ships_comes_back_as_a_built_in(instance: Instance) 
     assert row["built_in"] is True
     stored = await stored_rows(instance, ["builtin-score-9000"])
     assert stored["builtin-score-9000"]["definition"] == BY_ID["builtin-score-9000"].definition
+    assert stored["builtin-score-9000"]["combine"] == "all"
+
+
+async def test_an_archive_from_before_combine_existed_imports_as_all(instance: Instance) -> None:
+    """Every archive exported before an achievement could say "any of them" carries no
+    `combine`, and every one of them meant all of them. Left out, it means that still — and
+    because an archive is the whole description of what it names, importing it over a row that
+    says `any` puts that row back on `all`, exactly as a picture left out clears one."""
+    old = one_achievement("from-before", name="From Before")
+    assert "combine" not in old
+    data = tar_gz([json_member("from-before", old)])
+
+    first = await upload(instance.client, data)
+    assert first.status_code == 200, first.text
+    assert (await stored_rows(instance, ["from-before"]))["from-before"]["combine"] == "all"
+
+    switched = await upload(
+        instance.client, tar_gz([json_member("from-before", {**old, "combine": "any"})])
+    )
+    assert switched.status_code == 200, switched.text
+    assert (await stored_rows(instance, ["from-before"]))["from-before"]["combine"] == "any"
+    exported = members_of(await export(instance.client, ["from-before"]))
+    assert json.loads(exported[f"from-before/{ACHIEVEMENT_FILE}"])["combine"] == "any"
+
+    again = await upload(instance.client, data)
+    assert again.status_code == 200, again.text
+    assert (await stored_rows(instance, ["from-before"]))["from-before"]["combine"] == "all"
+
+
+def test_a_combine_that_is_neither_word_is_refused() -> None:
+    with pytest.raises(archive.AchievementFileError, match="combine"):
+        archive.read_archive(tar_gz([json_member("one", one_achievement("one", combine="some"))]))
 
 
 async def test_an_uploaded_picture_travels_with_it(instance: Instance) -> None:
