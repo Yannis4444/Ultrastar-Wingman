@@ -55,7 +55,7 @@ test("the host session gets every management page and a way back to the stage", 
     "href",
     "/settings",
   );
-  expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
     "href",
     "/user/groups",
   );
@@ -83,7 +83,7 @@ test("only the entries the session may open are listed", async () => {
   renderPage();
 
   expect(await screen.findByRole("link", { name: "Settings" })).toBeVisible();
-  expect(screen.queryByRole("link", { name: "Groups" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Permissions" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Players & accounts" })).toBeNull();
 });
 

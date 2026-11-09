@@ -157,5 +157,5 @@ connection. It reconnects on its own after a moment. Reload if it does not.
 
 Check the groups, not the button. **User** > **Players & accounts** shows who
 has an account, and whoever may manage accounts sees each one's groups there.
-**Groups** decides what each group may do. A change reaches the person's phone
+**Permissions** decides what each group may do. A change reaches the person's phone
 at once, with no reload. See [Groups and permissions](../people/groups.md).

@@ -36,7 +36,8 @@ interface AccountGroupsProps {
 /**
  * *Groups of Fry* (permission-groups.md §9.2): the panel behind an account
  * row's groups button, one `PickerRow` per group somebody can be put in — every
- * one but Guest and User — with `list-check` on the ones the account is in.
+ * one but Guest and User — a `plus` to put them in, a `check` on the ones the
+ * account is in (`marks` `plus`: a person in a group, not a song on a list).
  *
  * A tap is one `PUT /users/{id}/groups` carrying the account's whole set with
  * that row flipped; every row waits for its round trip. Taking somebody out
@@ -117,6 +118,7 @@ export default function AccountGroups({
               title={group.name}
               meta={why ?? addedRights(group)}
               pressed={member}
+              marks="plus"
               // Every row waits for the round trip, the playlist picker's
               // way: the body is the whole set as the listing has it, so a
               // second tap before the first answer would send a set without

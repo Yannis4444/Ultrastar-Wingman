@@ -75,7 +75,7 @@ deletes anybody's. See [Open a song](../songs/song.md).
 
 ## The Groups page
 
-**User** > **Groups** lists every group: Guest, User, the groups of the party by
+**User** > **Permissions** lists every group: Guest, User, the groups of the party by
 name, and Admin last. Each row says who is in the group and what it gives.
 
 ![The Groups page with Guest, User, DJs, Trusted, and Admin, each with a line saying who is in it and how many rights it adds](../assets/screenshots/people/groups.png){ width="320" loading=lazy }
@@ -88,7 +88,7 @@ tick.
 
 ## Make a group
 
-1. Open **User** > **Groups**.
+1. Open **User** > **Permissions**.
 2. Tap :wingman-plus: **New group**.
 3. Type a **Name**. It may be up to 32 characters, and no other group may have
    it, capitals aside. *Guest*, *User*, and *Admin* are taken.

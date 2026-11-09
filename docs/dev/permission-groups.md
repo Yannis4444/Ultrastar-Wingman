@@ -419,7 +419,7 @@ is in Trusted and DJs now* / *'Fry' is in no group now*. Registering keeps its l
 | `components/PeopleAdmin.tsx` | `ASSIGNABLE_ROLES`, the role `<select>` | §9.2 |
 | `components/RolePermissions.tsx`, `pages/UserPermissions.tsx` | the role matrix | §9.1 |
 | `pages/TagEditor.tsx` | `ROLE_COLUMNS`, `NEW_TAG_GRANTS`, the role matrix | §9.4 |
-| `manage.ts` | *Permissions* → `/user/permissions` | *Groups* → `/user/groups` |
+| `manage.ts` | *Permissions* → `/user/permissions` | *Permissions* → `/user/groups` |
 | `docs/screenshots/seed.py`, `scenario.py` | `body["role"]` kept per account and printed (`entry['role']`) in the cookie list, `view_roles` / `assign_roles` | `body["groups"]` kept and printed joined (`admin` for the first account, `user` where the list is empty), `view_groups` / `assign_groups` with the Trusted id |
 
 Not readers of a role, and untouched: the player selector's **reader roles** (`devices`,
@@ -564,8 +564,8 @@ rule, in that file's words.
 
 ### 9.1 The Groups page and the group editor
 
-The *Permissions* entry of the manage menu becomes **Groups** (`shield`, gated on
-`permissions.manage` as before) and opens `/user/groups`, the shape of the tags admin: one row
+The *Permissions* entry of the manage menu (`shield`, gated on `permissions.manage` as before,
+and still called *Permissions* since 2026-11-09, see decision 11) opens `/user/groups`, the shape of the tags admin: one row
 per group in §2.5's order — the 40px square (`users` on `--input-bg`, `shield` for Admin), the
 name, a meta line, a `chevron-right` — and the header's `+` opening `/user/groups/new`. The meta
 line says who is in it and what it gives: *Everybody without an account · 8 rights* (Guest),
@@ -637,8 +637,9 @@ keep theirs), its words one line
 ellipsed with the whole of them in `title`, so *DJs · Moderators · Trusted* never pushes the
 name off a 360px row; its box stays 40px tall. It opens a **panel modal**, *Groups of Fry*,
 holding one `PickerRow` per group but Guest and User, in §2.5's order: the group's 40px square as
-the lead, the name, *adds 11 rights* or *every right* as the meta line, `list-check` when the
-account is in it. A tap is one `PUT /users/{id}/groups` carrying the whole set with that row
+the lead, the name, *adds 11 rights* or *every right* as the meta line, `plus` on a group the
+account is not in and `check` on one it is (the user's choice of 2026-11-09 over the song
+pickers' `list` / `list-check`: `PickerRow` `marks`). A tap is one `PUT /users/{id}/groups` carrying the whole set with that row
 flipped, every row disabled for its round trip (built: the body is the whole set as the listing
 has it, so a second tap before the first answer would send a set without the first flip — the
 playlist picker's `busy` rule). Over the rows one `.section-note`: *A group adds
@@ -837,8 +838,9 @@ Each with what this document builds; the alternative in brackets.
 10. **The Permissions page becomes a list of groups and one editor per group**, Save instead of
     a tick that saves (§9.1). [The matrix with a column per group: comparison on one screen, but
     cut column heads and, past four editable groups, an unreadable phone.]
-11. **The page and the manage entry are called *Groups*, at `/user/groups`**, with a redirect from
-    `/user/permissions` (§9.1).
+11. **The page is called *Groups*, at `/user/groups`**, with a redirect from `/user/permissions`
+    (§9.1). The manage entry was *Groups* too until 2026-11-09, when the user had it put back
+    to **Permissions**: the row on the User page names the right, the page it opens the groups.
 12. **Membership is a panel of `PickerRow`s behind a button that looks like today's select**
     (§9.2). [Checkboxes in the row, or a `<select multiple>`.]
 13. **The tile says *Admin*, or the groups joined by ` · `, or *User*** (§9.3).
@@ -1002,7 +1004,7 @@ Each with what this document builds; the alternative in brackets.
 - `pages/UserPermissions.tsx` + test → `pages/Groups.tsx` (+ `.css`, test), the list;
   `pages/GroupEditor.tsx` (+ `.css`, test), the editor; `App.tsx` routes `/user/groups`,
   `/user/groups/new` before `/user/groups/:groupId`, the redirect from `/user/permissions`;
-  `BottomNav.tsx` `COVERS`; `manage.ts` (*Groups*, `/user/groups`).
+  `BottomNav.tsx` `COVERS`; `manage.ts` (*Permissions*, `/user/groups`).
 - `components/PeopleAdmin.tsx` + `.css` + `pages/UserAccounts.test.tsx`: the button and the
   panel of §9.2 (the panel its own component, `components/AccountGroups.tsx` + test), the trash
   rule for Admin members.
