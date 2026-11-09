@@ -1,6 +1,6 @@
 # Sound effects
 
-*Built 2026-11-08 on `feat/groups-reel-sfx`; tuned by the user on 2026-11-09 (§1.4, §2). Where
+*Built 2026-11-08 on `feat/groups-reel-sfx`; changed at the user's request on 2026-11-09, unheard (§1.4, §2). Where
 this document and the code disagree, the code is right and this document is updated.*
 
 The user asked for "some sound effects? For the spinner (only on the host screen), for the
