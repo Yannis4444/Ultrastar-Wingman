@@ -286,7 +286,7 @@ test("an ordinary account has nothing to manage", async () => {
     screen.queryByRole("link", { name: "Players & accounts" }),
   ).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("link", { name: "Groups" }),
+    screen.queryByRole("link", { name: "Permissions" }),
   ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
@@ -312,7 +312,7 @@ test("a helper reaches the players page, and nothing else", async () => {
     screen.getByRole("link", { name: "Players & accounts" }),
   ).toHaveAttribute("href", "/user/accounts");
   expect(
-    screen.queryByRole("link", { name: "Groups" }),
+    screen.queryByRole("link", { name: "Permissions" }),
   ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
@@ -340,7 +340,7 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
     "href",
     "/user/tags",
   );
-  expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
     "href",
     "/user/groups",
   );

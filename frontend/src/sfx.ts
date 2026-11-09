@@ -1,6 +1,6 @@
 /**
  * The host screen's sound effects (docs/dev/sound-effects.md): the reel's
- * ticks and landing, the badges' whoosh and the soft thud they land with.
+ * ticks, the badges' whoosh and the thud they land with.
  *
  * Nothing here is a file. Every effect is a recipe — noise or an oscillator,
  * a filter and an envelope — scheduled on the page's one AudioContext
@@ -108,18 +108,24 @@ function voiceOf(
 // --- the recipes ----------------------------------------------------------------
 //
 // The `peak`s are the envelopes'. What comes out of a filter is less, and that
-// is what the room hears; measured in Chrome at master 100 and effects 100
-// (docs/dev/sound-effects.md): a tick 0.06 to 0.12 of full scale, the landing
-// about 0.25, a whoosh about 0.2 and the thud about 0.1 — every one of them
-// short and under the peaks of a song played at its evened-out level.
+// is what the room hears; the first cut was measured in Chrome at master 100
+// and effects 100 (docs/dev/sound-effects.md, with what the 2026-11-09 numbers
+// are reckoned to give): a tick 0.06 to 0.12 of full scale, a whoosh about
+// 0.25 and the thud up to about 0.3 — every one of them short and under the
+// peaks of a song played at its evened-out level.
 
-/** Each cover the reel carries past the line: a dry, woody click, 25 ms. */
+/**
+ * Each cover the reel carries past the line: a dry, woody knock, 30 ms. The
+ * band sits at 1100 Hz since 2026-11-09, when the user asked for a deeper
+ * tick than the 2600 Hz click of the first cut; a band-pass that low is
+ * narrower at the same Q, so the peak is up to keep the level where it was.
+ */
 export const TICK = {
-  frequency: 2600,
-  q: 3,
-  peak: 0.3,
+  frequency: 1100,
+  q: 2.5,
+  peak: 0.42,
   attack: 0.001,
-  length: 0.025,
+  length: 0.03,
 } as const;
 
 export const tick: Recipe = (context, destination, when) => {
@@ -134,64 +140,20 @@ export const tick: Recipe = (context, destination, when) => {
   return voiceOf([source], [filter, gain]);
 };
 
-/** The reel comes to rest: a low knock under a short clack, a quarter second. */
-export const LAND = {
-  knockFrom: 170,
-  knockTo: 70,
-  knockPeak: 0.22,
-  knockLength: 0.22,
-  clackFrequency: 1400,
-  clackQ: 2,
-  clackPeak: 0.4,
-  clackLength: 0.05,
-} as const;
-
-export const land: Recipe = (context, destination, when) => {
-  const knock = context.createOscillator();
-  knock.type = "sine";
-  knock.frequency.setValueAtTime(LAND.knockFrom, when);
-  knock.frequency.exponentialRampToValueAtTime(LAND.knockTo, when + 0.12);
-  const knockGain = envelope(
-    context,
-    when,
-    LAND.knockPeak,
-    0.003,
-    LAND.knockLength,
-  );
-  knock.connect(knockGain);
-  knockGain.connect(destination);
-  knock.start(when);
-  knock.stop(when + LAND.knockLength + 0.01);
-
-  const filter = context.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.setValueAtTime(LAND.clackFrequency, when);
-  filter.Q.setValueAtTime(LAND.clackQ, when);
-  const clackGain = envelope(
-    context,
-    when,
-    LAND.clackPeak,
-    0.001,
-    LAND.clackLength,
-  );
-  filter.connect(clackGain);
-  clackGain.connect(destination);
-  const clack = noiseBurst(context, filter, when, LAND.clackLength + 0.005);
-
-  return voiceOf([knock, clack], [knockGain, filter, clackGain]);
-};
-
 /**
- * A badge thrown onto the stage: air, swelling in the first 70 ms — the throw
+ * A badge thrown onto the stage: air, swelling in the first 80 ms — the throw
  * is fastest as it starts (HostAchievements.css) — and falling away in pitch
- * and level as the badge slows, gone by 0.45 s, the moment it lands.
+ * and level as the badge slows, gone by 0.45 s, the moment it lands. The
+ * sweep is wider and the level higher since 2026-11-09 (the user's "a bit
+ * more epic"): it starts brighter and ends lower, so the same throw reads as
+ * a bigger thing passing.
  */
 export const WHOOSH = {
-  fromFrequency: 2200,
-  toFrequency: 420,
-  q: 0.9,
-  peak: 0.37,
-  swell: 0.07,
+  fromFrequency: 2800,
+  toFrequency: 300,
+  q: 1,
+  peak: 0.5,
+  swell: 0.08,
   length: 0.45,
 } as const;
 
@@ -217,12 +179,21 @@ export const whoosh: Recipe = (context, destination, when) => {
   return voiceOf([source], [filter, gain]);
 };
 
-/** The badge settles: a soft low thud, quieter than the whoosh, 0.16 s. */
+/**
+ * The badge settles: a low thud, quieter than the whoosh but with weight — a
+ * sine dropping to the bottom of what a TV's speakers give over 0.3 s, under
+ * a short burst of low-passed noise, the impact itself. The user asked for
+ * "a bit more epic" on 2026-11-09, and this is the thud's share of it: lower,
+ * longer and heavier, still a thud.
+ */
 export const THUD = {
-  from: 120,
-  to: 55,
-  peak: 0.11,
-  length: 0.16,
+  from: 150,
+  to: 45,
+  peak: 0.2,
+  length: 0.3,
+  impactFrequency: 300,
+  impactPeak: 0.25,
+  impactLength: 0.07,
 } as const;
 
 export const thud: Recipe = (context, destination, when) => {
@@ -235,10 +206,25 @@ export const thud: Recipe = (context, destination, when) => {
   gain.connect(destination);
   body.start(when);
   body.stop(when + THUD.length + 0.01);
-  return voiceOf([body], [gain]);
+
+  const filter = context.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(THUD.impactFrequency, when);
+  const impactGain = envelope(
+    context,
+    when,
+    THUD.impactPeak,
+    0.002,
+    THUD.impactLength,
+  );
+  filter.connect(impactGain);
+  impactGain.connect(destination);
+  const impact = noiseBurst(context, filter, when, THUD.impactLength + 0.005);
+
+  return voiceOf([body, impact], [gain, filter, impactGain]);
 };
 
-export const RECIPES = { tick, land, whoosh, thud } as const;
+export const RECIPES = { tick, whoosh, thud } as const;
 export type EffectName = keyof typeof RECIPES;
 
 // --- playing them -------------------------------------------------------------
@@ -281,13 +267,12 @@ export function resetEffects(): void {
   lastTick = null;
 }
 
-/** What the host screen's reel sounds like: `SongReel`'s `sounds`. */
+/** What the host screen's reel sounds like: `SongReel`'s `sounds` — the
+ *  ticks alone. The landing had a knock of its own until 2026-11-09, when the
+ *  user had it taken out: the song itself starts there. */
 export const REEL_SOUNDS = {
   pass: () => {
     playEffect("tick");
-  },
-  land: () => {
-    playEffect("land");
   },
 };
 

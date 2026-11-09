@@ -154,8 +154,8 @@ singers. One click anywhere on the page does the same thing.
 ## Sound effects
 
 The host screen makes a few short sounds of its own. The reel ticks for every
-cover that passes and clicks when it lands. Every new badge after a song flies
-in with a whoosh and lands with a soft thud. A host screen that opens after the
+cover that passes and goes quiet as it lands: the song itself starts there.
+Every new badge after a song flies in with a whoosh and lands with a thud. A host screen that opens after the
 reel has landed stays quiet. Like the music, they wait for one click or key
 press anywhere on the page, and only the host screen that plays the music makes
 them. The phones make none of these sounds, and nothing plays during a song.

@@ -76,13 +76,13 @@ test("one row per group but Guest and User, each saying what it adds", () => {
   expect(screen.getByRole("button", { name: /Admin/ })).toHaveTextContent(
     "every right",
   );
-  // The account is in Trusted: the accent mark on that row alone.
+  // The account is in Trusted: the check on that row alone, a plus on the rest.
   const trusted = screen.getByRole("button", { name: /Trusted/ });
   expect(trusted).toHaveAttribute("aria-pressed", "true");
-  expect(iconNames(trusted)).toEqual(["users", "list-check"]);
+  expect(iconNames(trusted)).toEqual(["users", "check"]);
   expect(iconNames(screen.getByRole("button", { name: /Admin/ }))).toEqual([
     "shield",
-    "list",
+    "plus",
   ]);
   expect(screen.queryByRole("button", { name: /Guest/ })).toBeNull();
 });

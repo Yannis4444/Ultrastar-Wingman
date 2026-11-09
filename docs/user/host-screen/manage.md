@@ -11,7 +11,7 @@ Move the mouse to bring the corner controls back, then click :wingman-gear:
 screen. So does every page you open from here, which is the whole point of this
 view.
 
-![The Manage page on the TV, with Back at the top and rows for Settings, Players & accounts, Tags, Achievements, Player selector, and Groups](../assets/screenshots/host-screen/host-manage.png){ width="720" loading=lazy }
+![The Manage page on the TV, with Back at the top and rows for Settings, Players & accounts, Tags, Achievements, Player selector, and Permissions](../assets/screenshots/host-screen/host-manage.png){ width="720" loading=lazy }
 /// caption
 The host browser holds every right, so it gets all six rows.
 ///
@@ -32,8 +32,8 @@ The host browser holds every right, so it gets all six rows.
 - :wingman-card: **Player selector**: the box of card readers that picks the
   singers, and the cards that go with it. See
   [Player selector](../selector/index.md).
-- :wingman-shield: **Groups**: the groups of the party and what each one may
-  do. See [Groups and permissions](../people/groups.md).
+- :wingman-shield: **Permissions**: the groups of the party and what each one
+  may do. See [Groups and permissions](../people/groups.md).
 
 A row is only there when this browser may do something behind it. The host
 browser holds every right, so it sees all six.
