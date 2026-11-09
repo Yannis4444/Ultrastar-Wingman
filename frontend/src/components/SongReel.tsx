@@ -40,13 +40,10 @@ interface Reel {
  * The ear on a running reel: every animation frame reads where the transition
  * has really put it, and a cover whose edge crossed the line since the last
  * frame is one `pass` — at most one a frame. The covers stopping
- * (`transitionend`) is `stop`. Returns what ends the listening.
+ * (`transitionend`) ends the frames, so the reveal half a second later reads
+ * nothing more. Returns what ends the listening.
  */
-function listenToReel(
-  reel: HTMLElement,
-  pass: () => void,
-  stop: () => void,
-): () => void {
+function listenToReel(reel: HTMLElement, pass: () => void): () => void {
   const cover =
     (reel.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
   let last: number | null = null;
@@ -64,7 +61,6 @@ function listenToReel(
   const stopped = (event: TransitionEvent) => {
     if (event.target !== reel || event.propertyName !== "transform") return;
     cancelAnimationFrame(frame);
-    stop();
   };
   reel.addEventListener("transitionend", stopped);
   return () => {
@@ -140,9 +136,10 @@ interface SongReelProps {
   /**
    * The reel's sounds, the host screen's alone (`sfx.REEL_SOUNDS`): `pass` for
    * every cover whose edge crosses the line, read off the reel's real
-   * transform frame by frame, and `land` once per spin, when the covers stop —
-   * or at once, for a spin cut short or one under reduced motion, which never
-   * moves. A reel drawn settled makes no sound. Without it nothing is watched.
+   * transform frame by frame. The landing makes no sound of its own — the
+   * song starts there — so a spin cut short, one under reduced motion, which
+   * never moves, and a reel drawn settled make none. Without it nothing is
+   * watched.
    */
   sounds?: ReelSounds;
 }
@@ -150,7 +147,6 @@ interface SongReelProps {
 /** What a reel sounds like. */
 export interface ReelSounds {
   pass: () => void;
-  land: () => void;
 }
 
 /**
@@ -196,14 +192,6 @@ export default function SongReel({
   soundsRef.current = sounds;
   // One key per reel element ever mounted, the spinning and the settled alike.
   const keyRef = useRef(0);
-  // The spin whose landing has sounded: the covers stopping and the reveal
-  // half a second later are one landing, and so is a cut-short after the stop.
-  const landSounded = useRef<number | null>(null);
-  const soundLanding = useCallback((spinId: number) => {
-    if (landSounded.current === spinId) return;
-    landSounded.current = spinId;
-    soundsRef.current?.land();
-  }, []);
 
   const spinId = spin?.id ?? null;
 
@@ -221,8 +209,7 @@ export default function SongReel({
       setShown(target);
       setSpinning(false);
       if (!settledRef.current) {
-        // Reduced motion: the reel lands at once, and only the landing sounds.
-        soundLanding(spinId);
+        // Reduced motion: the reel lands at once, and nothing sounds.
         onSettledRef.current?.(target);
       }
       return;
@@ -241,7 +228,7 @@ export default function SongReel({
       ],
     });
     setSpinning(true);
-  }, [spinId, soundLanding]);
+  }, [spinId]);
 
   // The reveal timer of the running spin, owned here so the cut-short path can
   // clear it itself rather than trust the order effects clean up in.
@@ -257,24 +244,20 @@ export default function SongReel({
    * and a remount is what guarantees no style from the spin survives on it.
    * Stable, so the layout effect below never re-arms itself over it.
    */
-  const land = useCallback(
-    (landing: Reel) => {
-      if (revealTimer.current !== null) {
-        clearTimeout(revealTimer.current);
-        revealTimer.current = null;
-      }
-      stopListening.current?.();
-      stopListening.current = null;
-      const { spinId, winner } = landing;
-      keyRef.current += 1;
-      setReel({ key: keyRef.current, spinId, items: [winner], winner });
-      setShown(winner);
-      setSpinning(false);
-      soundLanding(spinId);
-      onSettledRef.current?.(winner);
-    },
-    [soundLanding],
-  );
+  const land = useCallback((landing: Reel) => {
+    if (revealTimer.current !== null) {
+      clearTimeout(revealTimer.current);
+      revealTimer.current = null;
+    }
+    stopListening.current?.();
+    stopListening.current = null;
+    const { spinId, winner } = landing;
+    keyRef.current += 1;
+    setReel({ key: keyRef.current, spinId, items: [winner], winner });
+    setShown(winner);
+    setSpinning(false);
+    onSettledRef.current?.(winner);
+  }, []);
 
   useLayoutEffect(() => {
     const element = reelElement.current;
@@ -287,13 +270,8 @@ export default function SongReel({
     element.style.transform = "translateY(0)";
 
     revealTimer.current = setTimeout(() => land(reel), REVEAL_MS);
-    const spin = reel.spinId;
     stopListening.current = soundsRef.current
-      ? listenToReel(
-          element,
-          () => soundsRef.current?.pass(),
-          () => soundLanding(spin),
-        )
+      ? listenToReel(element, () => soundsRef.current?.pass())
       : null;
     return () => {
       if (revealTimer.current !== null) clearTimeout(revealTimer.current);
@@ -301,7 +279,7 @@ export default function SongReel({
       stopListening.current?.();
       stopListening.current = null;
     };
-  }, [spinning, reel, land, soundLanding]);
+  }, [spinning, reel, land]);
 
   // The spin is declared over from outside while the covers still fly: a press
   // in the room skipped the animation, and the TV must not keep it running for

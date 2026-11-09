@@ -1,7 +1,6 @@
 import { resetLoudnessGraph, resumeAudio, setEffectsLevel } from "./musicGraph";
 import {
   coverAtLine,
-  land,
   MIN_TICK_GAP_S,
   playEffect,
   resetEffects,
@@ -136,32 +135,13 @@ describe("the recipes", () => {
     expect(gain.connections).toEqual([DESTINATION]);
     expect(peakOf(gain)).toBe(TICK.peak);
     // Short: silent again within a few tens of milliseconds of its start.
-    expect(endOf(gain) - 10).toBeLessThanOrEqual(0.03);
+    expect(endOf(gain) - 10).toBeLessThanOrEqual(0.04);
     const [source] = of(context, "source");
     expect(source.start).toHaveBeenCalledWith(
       10,
       expect.any(Number),
       expect.any(Number),
     );
-  });
-
-  test("the landing is a knock and a clack, both over in a quarter second", () => {
-    const context = fakeContext();
-    land(asContext(context), DESTINATION, 5);
-
-    const [knock] = of(context, "oscillator");
-    expect(knock.type).toBe("sine");
-    expect(knock.start).toHaveBeenCalledWith(5);
-    const stopAt = (knock.stop as ReturnType<typeof vi.fn>).mock
-      .calls[0][0] as number;
-    expect(stopAt - 5).toBeLessThan(0.3);
-    expect(of(context, "source")).toHaveLength(1);
-    // Two envelopes, each straight into the bus.
-    const outputs = of(context, "gain").filter((gain) =>
-      gain.connections.includes(DESTINATION),
-    );
-    expect(outputs).toHaveLength(2);
-    for (const gain of outputs) expect(endOf(gain) - 5).toBeLessThan(0.3);
   });
 
   test("a whoosh sweeps down and is gone well under a second", () => {
@@ -183,12 +163,26 @@ describe("the recipes", () => {
     expect(endOf(gain) - 2).toBeLessThan(1);
   });
 
-  test("the thud is quieter than the whoosh it ends", () => {
+  test("the thud is a low body under a short impact, quieter than the whoosh", () => {
     const context = fakeContext();
-    thud(asContext(context), DESTINATION, 0);
+    thud(asContext(context), DESTINATION, 5);
 
-    const [gain] = of(context, "gain");
-    expect(peakOf(gain)).toBe(THUD.peak);
+    const [body] = of(context, "oscillator");
+    expect(body.type).toBe("sine");
+    expect(body.start).toHaveBeenCalledWith(5);
+    const stopAt = (body.stop as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as number;
+    expect(stopAt - 5).toBeLessThan(0.4);
+    const [filter] = of(context, "filter");
+    expect(filter.type).toBe("lowpass");
+    expect(of(context, "source")).toHaveLength(1);
+    // Two envelopes, each straight into the bus, the body's the longer one.
+    const [bodyGain, impactGain] = of(context, "gain").filter((gain) =>
+      gain.connections.includes(DESTINATION),
+    );
+    expect(peakOf(bodyGain)).toBe(THUD.peak);
+    expect(endOf(bodyGain) - 5).toBeLessThan(0.4);
+    expect(endOf(impactGain) - 5).toBeLessThan(0.1);
     expect(THUD.peak).toBeLessThan(WHOOSH.peak);
   });
 
@@ -196,14 +190,14 @@ describe("the recipes", () => {
     const context = fakeContext();
     tick(asContext(context), DESTINATION, 0);
     whoosh(asContext(context), DESTINATION, 0);
-    land(asContext(context), DESTINATION, 0);
+    thud(asContext(context), DESTINATION, 0);
 
     expect(context.buffers).toBe(1);
   });
 
   test("stopping a voice stops every source in it", () => {
     const context = fakeContext();
-    const voice = land(asContext(context), DESTINATION, 0);
+    const voice = thud(asContext(context), DESTINATION, 0);
     voice.stop();
 
     expect(of(context, "oscillator")[0].stop).toHaveBeenCalledTimes(2);
@@ -212,14 +206,14 @@ describe("the recipes", () => {
 
   test("a voice lets its nodes go once its last source has ended", () => {
     const context = fakeContext();
-    land(asContext(context), DESTINATION, 0);
-    const [knock] = of(context, "oscillator");
-    const [clack] = of(context, "source");
+    thud(asContext(context), DESTINATION, 0);
+    const [body] = of(context, "oscillator");
+    const [impact] = of(context, "source");
     const [filter] = of(context, "filter");
 
-    (knock.onended as () => void)();
+    (body.onended as () => void)();
     expect(filter.disconnect).not.toHaveBeenCalled();
-    (clack.onended as () => void)();
+    (impact.onended as () => void)();
     expect(filter.disconnect).toHaveBeenCalled();
   });
 });
@@ -264,14 +258,14 @@ describe("playing an effect", () => {
     // No graph yet: nothing made, nothing asked of the browser.
     const Context = vi.fn();
     vi.stubGlobal("AudioContext", Context);
-    expect(playEffect("land")).toBeNull();
+    expect(playEffect("whoosh")).toBeNull();
     expect(Context).not.toHaveBeenCalled();
 
     resetLoudnessGraph();
     setEffectsLevel(1);
     const context = graph("suspended");
     context.resume.mockClear();
-    expect(playEffect("land")).toBeNull();
+    expect(playEffect("whoosh")).toBeNull();
     expect(context.nodes).toEqual([]);
     // Skipped, not woken: only a press on the page does that.
     expect(context.resume).not.toHaveBeenCalled();

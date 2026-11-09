@@ -376,14 +376,14 @@ describe("the reel's sounds", () => {
   }
 
   function sounds() {
-    return { pass: vi.fn(), land: vi.fn() };
+    return { pass: vi.fn() };
   }
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  test("a cover crossing the line is a tick, and the covers stopping is the landing", () => {
+  test("a cover crossing the line is a tick, and the covers stopping ends them", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const reel = frames();
     const ear = sounds();
@@ -401,7 +401,6 @@ describe("the reel's sounds", () => {
     // ear can tell apart, and a burst would be a buzz.
     reel.at(-3500);
     expect(ear.pass).toHaveBeenCalledTimes(2);
-    expect(ear.land).not.toHaveBeenCalled();
 
     // jsdom has no TransitionEvent: a plain event carrying what one would.
     const stopped = new Event("transitionend", { bubbles: true });
@@ -409,10 +408,12 @@ describe("the reel's sounds", () => {
     act(() => {
       reelElement(container).dispatchEvent(stopped);
     });
-    expect(ear.land).toHaveBeenCalledTimes(1);
-    // The reveal half a second later is the same landing.
+    // The covers have stopped: no landing sound (the song starts there), and
+    // no frame reads the reel any more — a jump now is not a cover passing.
+    reel.at(0);
+    expect(ear.pass).toHaveBeenCalledTimes(2);
     act(() => vi.advanceTimersByTime(REVEAL_MS));
-    expect(ear.land).toHaveBeenCalledTimes(1);
+    expect(ear.pass).toHaveBeenCalledTimes(2);
   });
 
   test("a reel run a cover a frame ticks once for every cover it carries past", () => {
@@ -434,19 +435,22 @@ describe("the reel's sounds", () => {
 
   test("a respin is heard again", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    frames();
+    const reel = frames();
     const ear = sounds();
     const { rerender } = render(
       <SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} sounds={ear} />,
     );
+    reel.at(-4000);
+    reel.at(-3900);
+    expect(ear.pass).toHaveBeenCalledTimes(1);
     act(() => vi.advanceTimersByTime(REVEAL_MS));
-    expect(ear.land).toHaveBeenCalledTimes(1);
 
     rerender(
       <SongReel spin={{ id: 2, winner: QUEEN }} fillers={POOL} sounds={ear} />,
     );
-    act(() => vi.advanceTimersByTime(REVEAL_MS));
-    expect(ear.land).toHaveBeenCalledTimes(2);
+    reel.at(-4000);
+    reel.at(-3900);
+    expect(ear.pass).toHaveBeenCalledTimes(2);
   });
 
   test("a reel drawn at rest makes no sound at all", () => {
@@ -465,10 +469,9 @@ describe("the reel's sounds", () => {
 
     expect(reel.request).not.toHaveBeenCalled();
     expect(ear.pass).not.toHaveBeenCalled();
-    expect(ear.land).not.toHaveBeenCalled();
   });
 
-  test("a spin cut short lands with one click", () => {
+  test("a spin cut short ticks no more", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const reel = frames();
     const ear = sounds();
@@ -485,16 +488,15 @@ describe("the reel's sounds", () => {
       />,
     );
 
-    expect(ear.land).toHaveBeenCalledTimes(1);
     // The reel jumped to its end: no frame after the landing reads that jump
     // as one more cover passing.
     reel.at(0);
     expect(ear.pass).not.toHaveBeenCalled();
     act(() => vi.advanceTimersByTime(REVEAL_MS));
-    expect(ear.land).toHaveBeenCalledTimes(1);
+    expect(ear.pass).not.toHaveBeenCalled();
   });
 
-  test("under reduced motion only the landing sounds", () => {
+  test("under reduced motion nothing sounds", () => {
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
     const reel = frames();
     const ear = sounds();
@@ -504,7 +506,6 @@ describe("the reel's sounds", () => {
 
     expect(reel.request).not.toHaveBeenCalled();
     expect(ear.pass).not.toHaveBeenCalled();
-    expect(ear.land).toHaveBeenCalledTimes(1);
   });
 
   test("a reel without sounds watches nothing", () => {

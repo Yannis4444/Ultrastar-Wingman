@@ -36,7 +36,7 @@ the two swap. See [Sing a song](../party/sing.md).
 | **Preview volume** | The song being picked, while the singers are chosen | 100 |
 | **Effects volume** | Wingman's own sound effects on the host screen | 100 |
 | **Song preview** | Play the song being picked on the host screen while the singers are chosen, from where its singing starts: once the reel lands on it, or at once for a song somebody chose. It stops when the song starts or the pick is given up, and the background music pauses for it | on |
-| **Sound effects** | Short sounds on the host screen: a tick for every cover the reel passes and a click when it lands, and a whoosh for every new badge after a song. Nothing on the phones, and nothing while a song is sung. See [Sound effects](../host-screen/index.md#sound-effects) | on |
+| **Sound effects** | Short sounds on the host screen: a tick for every cover the reel passes, and a whoosh and a thud for every new badge after a song. Nothing on the phones, and nothing while a song is sung. See [Sound effects](../host-screen/index.md#sound-effects) | on |
 
 The volumes are percentages, and the master multiplies the others. None of them
 touches Ultrastar Deluxe, which mixes a song being sung itself. See
