@@ -17,7 +17,6 @@ import {
 import { useAuth } from "../auth";
 import { parseServerTime } from "../duration";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
-import { REEL_SOUNDS } from "../sfx";
 import PlayerAvatar from "./PlayerAvatar";
 import SongCover from "./SongCover";
 import SongReel, { REVEAL_MS } from "./SongReel";
@@ -206,10 +205,6 @@ export default function HostSelection({
                 fillers={songs.data?.songs ?? []}
                 settled={settled}
                 onSettled={() => setLanded(spinKey)}
-                // The host screen is the one place the reel is heard: a tick
-                // per cover and a click when it lands, at master × effects,
-                // while `sound.effects` is on (docs/dev/sound-effects.md).
-                sounds={REEL_SOUNDS}
               />
             </div>
           )}

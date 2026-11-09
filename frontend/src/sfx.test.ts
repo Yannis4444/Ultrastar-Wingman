@@ -1,17 +1,5 @@
 import { resetLoudnessGraph, resumeAudio, setEffectsLevel } from "./musicGraph";
-import {
-  coverAtLine,
-  MIN_TICK_GAP_S,
-  playEffect,
-  resetEffects,
-  THUD,
-  thud,
-  tick,
-  TICK,
-  translateYOf,
-  whoosh,
-  WHOOSH,
-} from "./sfx";
+import { playEffect, THUD, thud, whoosh, WHOOSH } from "./sfx";
 
 /** An AudioParam that records what was scheduled on it. */
 function fakeParam() {
@@ -117,7 +105,6 @@ function endOf(gain: FakeNode): number {
 
 beforeEach(() => {
   resetLoudnessGraph();
-  resetEffects();
 });
 
 afterEach(() => {
@@ -125,25 +112,6 @@ afterEach(() => {
 });
 
 describe("the recipes", () => {
-  test("a tick is a few milliseconds of band-passed noise into the bus", () => {
-    const context = fakeContext();
-    tick(asContext(context), DESTINATION, 10);
-
-    const [filter] = of(context, "filter");
-    expect(filter.type).toBe("bandpass");
-    const [gain] = of(context, "gain");
-    expect(gain.connections).toEqual([DESTINATION]);
-    expect(peakOf(gain)).toBe(TICK.peak);
-    // Short: silent again within a few tens of milliseconds of its start.
-    expect(endOf(gain) - 10).toBeLessThanOrEqual(0.04);
-    const [source] = of(context, "source");
-    expect(source.start).toHaveBeenCalledWith(
-      10,
-      expect.any(Number),
-      expect.any(Number),
-    );
-  });
-
   test("a whoosh sweeps down and is gone well under a second", () => {
     const context = fakeContext();
     whoosh(asContext(context), DESTINATION, 2);
@@ -188,7 +156,6 @@ describe("the recipes", () => {
 
   test("the noise is made once per context", () => {
     const context = fakeContext();
-    tick(asContext(context), DESTINATION, 0);
     whoosh(asContext(context), DESTINATION, 0);
     thud(asContext(context), DESTINATION, 0);
 
@@ -236,12 +203,12 @@ describe("playing an effect", () => {
     const context = graph();
     setEffectsLevel(0.4);
 
-    expect(playEffect("tick")).not.toBeNull();
+    expect(playEffect("whoosh")).not.toBeNull();
 
     const bus = of(context, "gain")[0];
     expect((bus.gain as FakeParam).value).toBe(0.4);
     expect(bus.connections).toEqual([context.destination]);
-    // The tick's own envelope plays into the bus, not past it.
+    // The whoosh's own envelope plays into the bus, not past it.
     expect(of(context, "gain")[1].connections).toEqual([bus]);
   });
 
@@ -299,16 +266,6 @@ describe("playing an effect", () => {
     expect(gain.setTargetAtTime).not.toHaveBeenCalled();
   });
 
-  test("ticks closer together than the gap are one", () => {
-    const context = graph();
-    setEffectsLevel(1);
-
-    expect(playEffect("tick")).not.toBeNull();
-    expect(playEffect("tick")).toBeNull();
-    context.currentTime += MIN_TICK_GAP_S * 1.5;
-    expect(playEffect("tick")).not.toBeNull();
-  });
-
   test("a delayed effect is scheduled ahead on the audio clock", () => {
     const context = graph();
     setEffectsLevel(1);
@@ -317,27 +274,5 @@ describe("playing an effect", () => {
 
     const [body] = of(context, "oscillator");
     expect(body.start).toHaveBeenCalledWith(context.currentTime + 0.5);
-  });
-});
-
-describe("following the reel", () => {
-  test("reads the vertical offset out of a computed transform", () => {
-    expect(translateYOf("none")).toBe(0);
-    expect(translateYOf("matrix(1, 0, 0, 1, 0, -1234.5)")).toBe(-1234.5);
-    expect(
-      translateYOf(
-        "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -80, 0, 1)",
-      ),
-    ).toBe(-80);
-    // The inline form jsdom hands back is not a position.
-    expect(translateYOf("translateY(0)")).toBeNull();
-    expect(translateYOf("matrix(1, 0, 0)")).toBeNull();
-  });
-
-  test("the cover at the line changes as an edge crosses the middle", () => {
-    expect(coverAtLine(-1000, 200)).toBe(5);
-    expect(coverAtLine(-1099, 200)).toBe(5);
-    expect(coverAtLine(-1101, 200)).toBe(6);
-    expect(coverAtLine(0, 200)).toBe(0);
   });
 });
