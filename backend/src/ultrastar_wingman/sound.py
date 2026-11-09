@@ -11,9 +11,9 @@ None of it is about Ultrastar Deluxe. USDX plays a sing through its own mixer an
 does not touch it; these are the background music, the song being picked and the sound
 effects, which come out of the host browser's own audio elements and its Web Audio graph.
 
-`sound.effects` is the switch for those effects: the reel's ticks and landing and the
-achievements' whoosh on the host screen (docs/dev/sound-effects.md). It rides the music
-state like the volumes do, so an open host page follows it without a reload.
+`sound.effects` is the switch for those effects: the achievements' whoosh and thud on the
+host screen (docs/dev/sound-effects.md; the reel's ticks went on 2026-11-09, "too much"). It
+rides the music state like the volumes do, so an open host page follows it without a reload.
 
 `sound.reel_preview` is the other switch: whether the host screen plays the song being
 picked at all — the reel's, from its landing, and one a selection was opened with, at once,
@@ -40,7 +40,7 @@ VOLUME_KEYS: frozenset[str] = frozenset(
 # Every key this module owns. `music.service` caches all of them and `api.update_setting`
 # refreshes that cache when one is written, so the TV follows a volume set on the Settings
 # page without a restart, switching the song preview off ends one that is playing, and
-# switching the sound effects off silences the next tick.
+# switching the sound effects off silences the next badge.
 MUSIC_KEYS: frozenset[str] = VOLUME_KEYS | {REEL_PREVIEW, SOUND_EFFECTS}
 
 MIN_VOLUME = 0

@@ -153,12 +153,10 @@ singers. One click anywhere on the page does the same thing.
 
 ## Sound effects
 
-The host screen makes a few short sounds of its own. The reel ticks for every
-cover that passes and goes quiet as it lands: the song itself starts there.
-Every new badge after a song flies in with a whoosh and lands with a thud. A host screen that opens after the
-reel has landed stays quiet. Like the music, they wait for one click or key
-press anywhere on the page, and only the host screen that plays the music makes
-them. The phones make none of these sounds, and nothing plays during a song.
+The host screen makes two short sounds of its own: every new badge after a
+song flies in with a whoosh and lands with a thud. Like the music, they wait
+for one click or key press anywhere on the page, and only the host screen that
+plays the music makes them. The phones make none of these sounds, and nothing plays during a song.
 Switch them off with **Sound effects** in the **Sound** group of the settings,
 and set how loud they are with **Effects volume** there. See
 [All settings](../settings/reference.md#sound).

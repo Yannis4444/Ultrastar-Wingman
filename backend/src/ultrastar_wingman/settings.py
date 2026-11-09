@@ -236,12 +236,7 @@ register(
         value_type=bool,
         default=True,
         group="Sound",
-        description=(
-            "Play the song being picked on the host screen while the singers are chosen, "
-            "from where its singing starts: once the reel lands on it, or at once for a song "
-            "somebody chose. It stops when the song starts or the pick is given up, and the "
-            "background music pauses for it."
-        ),
+        description="Play the song being picked on the host screen while the singers are chosen.",
     )
 )
 register(
@@ -250,11 +245,7 @@ register(
         value_type=bool,
         default=True,
         group="Sound",
-        description=(
-            "Short sounds on the host screen: a tick for every cover the reel passes and a "
-            "click when it lands, and a whoosh for every new badge after a song. Nothing on "
-            "the phones, and nothing while a song is sung."
-        ),
+        description="A whoosh and a thud on the host screen for every new badge.",
     )
 )
 register(

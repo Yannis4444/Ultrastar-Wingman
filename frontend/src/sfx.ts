@@ -1,6 +1,7 @@
 /**
- * The host screen's sound effects (docs/dev/sound-effects.md): the reel's
- * ticks, the badges' whoosh and the thud they land with.
+ * The host screen's sound effects (docs/dev/sound-effects.md): the badges'
+ * whoosh and the thud they land with. (The reel had ticks and a landing of
+ * its own until 2026-11-09, when the user found them too much.)
  *
  * Nothing here is a file. Every effect is a recipe — noise or an oscillator,
  * a filter and an envelope — scheduled on the page's one AudioContext
@@ -110,35 +111,8 @@ function voiceOf(
 // The `peak`s are the envelopes'. What comes out of a filter is less, and that
 // is what the room hears; the first cut was measured in Chrome at master 100
 // and effects 100 (docs/dev/sound-effects.md, with what the 2026-11-09 numbers
-// are reckoned to give): a tick 0.06 to 0.12 of full scale, a whoosh about
-// 0.25 and the thud up to about 0.3 — every one of them short and under the
-// peaks of a song played at its evened-out level.
-
-/**
- * Each cover the reel carries past the line: a dry, woody knock, 30 ms. The
- * band sits at 1100 Hz since 2026-11-09, when the user asked for a deeper
- * tick than the 2600 Hz click of the first cut; a band-pass that low is
- * narrower at the same Q, so the peak is up to keep the level where it was.
- */
-export const TICK = {
-  frequency: 1100,
-  q: 2.5,
-  peak: 0.42,
-  attack: 0.001,
-  length: 0.03,
-} as const;
-
-export const tick: Recipe = (context, destination, when) => {
-  const filter = context.createBiquadFilter();
-  filter.type = "bandpass";
-  filter.frequency.setValueAtTime(TICK.frequency, when);
-  filter.Q.setValueAtTime(TICK.q, when);
-  const gain = envelope(context, when, TICK.peak, TICK.attack, TICK.length);
-  filter.connect(gain);
-  gain.connect(destination);
-  const source = noiseBurst(context, filter, when, TICK.length + 0.005);
-  return voiceOf([source], [filter, gain]);
-};
+// are reckoned to give): a whoosh about 0.25 and the thud up to about 0.3 —
+// both short and under the peaks of a song played at its evened-out level.
 
 /**
  * A badge thrown onto the stage: air, swelling in the first 80 ms — the throw
@@ -224,15 +198,10 @@ export const thud: Recipe = (context, destination, when) => {
   return voiceOf([body, impact], [gain, filter, impactGain]);
 };
 
-export const RECIPES = { tick, whoosh, thud } as const;
+export const RECIPES = { whoosh, thud } as const;
 export type EffectName = keyof typeof RECIPES;
 
 // --- playing them -------------------------------------------------------------
-
-/** Ticks closer than this are one: at full speed the reel carries more than a
- *  cover a frame past the line, and a click per frame is a buzz, not a reel. */
-export const MIN_TICK_GAP_S = 0.03;
-let lastTick: { context: BaseAudioContext; at: number } | null = null;
 
 /**
  * Play `name` now, or `delay` seconds from now on the audio clock. `null` when
@@ -244,63 +213,10 @@ export function playEffect(name: EffectName, delay = 0): Voice | null {
   if (output === null) return null;
   const { context, destination } = output;
   const when = context.currentTime + Math.max(0, delay);
-  if (name === "tick") {
-    if (
-      lastTick !== null &&
-      lastTick.context === context &&
-      when - lastTick.at < MIN_TICK_GAP_S
-    ) {
-      return null;
-    }
-    lastTick = { context, at: when };
-  }
   try {
     return RECIPES[name](context, destination, when);
   } catch {
     // A graph that refused a node: an effect is never worth an error.
     return null;
   }
-}
-
-/** Only for the tests: forget the last tick. */
-export function resetEffects(): void {
-  lastTick = null;
-}
-
-/** What the host screen's reel sounds like: `SongReel`'s `sounds` — the
- *  ticks alone. The landing had a knock of its own until 2026-11-09, when the
- *  user had it taken out: the song itself starts there. */
-export const REEL_SOUNDS = {
-  pass: () => {
-    playEffect("tick");
-  },
-};
-
-// --- following the reel ---------------------------------------------------------
-
-/**
- * The vertical offset a computed `transform` puts an element at, in px — the
- * reel's real position mid-transition, read off the browser rather than worked
- * out from a second clock. `none` is 0; anything unreadable is `null`.
- */
-export function translateYOf(transform: string): number | null {
-  const value = transform.trim();
-  if (value === "" || value === "none") return 0;
-  const match = /^matrix(3d)?\(([^)]*)\)$/.exec(value);
-  if (match === null) return null;
-  const numbers = match[2].split(",").map((part) => Number(part.trim()));
-  if (numbers.some((number) => !Number.isFinite(number))) return null;
-  if (match[1] === "3d") return numbers.length === 16 ? numbers[13] : null;
-  return numbers.length === 6 ? numbers[5] : null;
-}
-
-/**
- * Which cover of the reel stands at the window's line, counted from the top,
- * for a reel `offset` px up (negative) and covers `cover` px high. It changes
- * as a cover's edge crosses the line in the window's middle — the moment the
- * tick belongs to.
- */
-export function coverAtLine(offset: number, cover: number): number {
-  // `+ 0` turns the -0 a reel at rest would give into 0.
-  return Math.round(-offset / cover) + 0;
 }
