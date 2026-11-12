@@ -1,6 +1,9 @@
 [project]
 site_name = "Ultrastar Wingman"
 site_description = "Karaoke companion for Ultrastar Deluxe: songs, players, wishes and scores."
+# Where .github/workflows/docs.yml publishes the site.
+site_url = "https://yannis4444.github.io/Ultrastar-Wingman/"
+repo_url = "https://github.com/Yannis4444/Ultrastar-Wingman"
 
 # The user guide only. `docs/dev/` stays outside this directory on purpose: zensical
 # builds every markdown file it finds under `docs_dir` and has no exclude option, so

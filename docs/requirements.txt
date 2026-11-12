@@ -3,4 +3,4 @@
 #
 #   venv\Scripts\python.exe -m pip install -r docs\requirements.txt
 #   cd docs && ..\venv\Scripts\python.exe -m zensical build
-zensical
+zensical==0.0.57
