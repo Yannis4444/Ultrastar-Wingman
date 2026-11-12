@@ -750,7 +750,7 @@ ring costs the picture no width, so the figure still fits its column. It earns i
 the dark scheme, where a dark screenshot sits on a background of almost the same color and
 would otherwise have no edge at all.
 
-Config facts, all verified against the installed zensical (0.0.57):
+Config facts, all verified against zensical 0.0.57 (the site builds unchanged on 0.1.1, the pinned version):
 
 - Setting `[project.markdown_extensions]` replaces zensical's defaults completely. List every
   extension the site uses: `admonition`, `attr_list`, `md_in_html`, `pymdownx.blocks.caption`,
