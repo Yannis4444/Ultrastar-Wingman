@@ -353,12 +353,40 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 
 ## Cutting a release
 
-1. Bump `version` in `backend\pyproject.toml` (and nothing else) and commit it.
-2. Run `.\installer\build.ps1 -UsdxDir <USDX game directory>` on a clean checkout of that
-   commit, outside any folder a running Wingman uses.
-3. Publish the three files from the output directory on the GitHub release:
-   `UltrastarWingman-<version>-setup.exe`, `UltrastarWingman-<version>-with-usdx-setup.exe`
-   and `UltrastarWingman.exe`, not the `UltrastarWingman` folder, which both setups
-   carry. Say in the release notes which USDX commit the bundled
-   edition carries (the one in `usdx\SOURCE.txt`), since the GPL asks for its source to
-   be reachable.
+Version numbers are PEP 440, because pip, the exe and the installer's downgrade check all
+read the same string: `0.1.0b1`, `0.1.0b2`, `0.1.0rc1`, `0.1.0`. Never `0.1.0-beta.1`. The
+tag is the version behind a `v`: `v0.1.0b1`.
+
+1. Make sure `main` is what ships: CI green on its last commit, nothing uncommitted.
+2. Bump `version` in `backend\pyproject.toml` (and nothing else), commit it as
+   `build: release <version>`, and push.
+3. Tag that commit, annotated, and push the tag:
+
+   ```powershell
+   git tag -a v0.1.0b1 -m "Ultrastar Wingman 0.1.0b1"
+   git push origin v0.1.0b1
+   ```
+
+4. Run `.\installer\build.ps1 -UsdxDir <USDX game directory>` on a clean checkout of the
+   tag, outside any folder a running Wingman uses. The USDX game directory is a build of a
+   commit that is pushed to the fork: `usdx\SOURCE.txt` names it, and the build warns when
+   the checkout has uncommitted changes.
+5. Install the setup with Ultrastar Deluxe by hand once (the wizard, not a silent run),
+   start Wingman, and sing one song.
+6. Draft a GitHub release on the tag, titled `Ultrastar Wingman <version>`. Attach the three
+   files from the output directory under the names the build gave them:
+   `UltrastarWingman-<version>-with-usdx-setup.exe`, `UltrastarWingman-<version>-setup.exe`
+   and `UltrastarWingman.exe`. Not the `UltrastarWingman` folder, which both setups carry.
+   The user guide and the README name the files this way.
+7. In the release notes, say which USDX commit the edition with Ultrastar Deluxe carries
+   (the one in `usdx\SOURCE.txt`), since the GPL asks for its source to be reachable, that
+   the setup is unsigned (Windows SmartScreen warns), and give the SHA-256 of each file:
+
+   ```powershell
+   Get-FileHash <OutDir>\*.exe -Algorithm SHA256 | Format-Table Hash, @{n="File";e={Split-Path $_.Path -Leaf}}
+   ```
+
+8. For a version with a suffix (`b`, `rc`), tick **Set as a pre-release**. Publish.
+
+A tag that is pushed is never moved. A build that turns out broken gets the next number
+(`0.1.0b2`), not a second `v0.1.0b1`.
