@@ -58,7 +58,8 @@ copy, and the whole suite runs in about two and a half minutes:
 - **Parsers of external data**: USDB HTML/responses, USDX song `.txt`
   metadata, config files. Fixture-based: check a real captured sample into
   `tests/fixtures/` and parse it. When the external format changes, capture a
-  new fixture.
+  new fixture. The root `.gitattributes` marks that directory `-text`, so a
+  fixture's bytes, line endings included, are the same on every checkout.
 - **API endpoints**: happy path + authorization (a non-privileged user gets
   403) for every route. Permission checks are the one thing that must never
   regress silently.

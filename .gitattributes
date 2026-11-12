@@ -1,0 +1,4 @@
+# Captured samples are bytes, not text: the song txt tests assert on the CRLF line endings
+# of the files they read, so no checkout may convert them (core.autocrlf would, and did:
+# stored as LF, they were CRLF on Windows and LF on the Linux CI runner).
+backend/tests/fixtures/** -text
