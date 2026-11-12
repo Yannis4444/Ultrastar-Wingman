@@ -210,10 +210,14 @@ async def read_session(session: AsyncSession, karaoke_session: KaraokeSession) -
     return found
 
 
-def _scores_query() -> Select[tuple[Score, Song, Sing]]:
+def _scores_query() -> Select:
     """Scores with their sing and song. An outer join on the song, so `Song` is really
     `Song | None`: a score whose song left the library still counts, it just has nothing to
-    show for it."""
+    show for it.
+
+    A bare `Select` rather than the row's types: SQLAlchemy 2.0 spells them
+    `Select[tuple[Score, Song, Sing]]` and 2.1 `Select[Score, Song, Sing]`, and the bare
+    form is the one annotation both versions type-check."""
     return (
         select(Score, Song, Sing)
         .join(Sing, Sing.id == Score.sing_id)
@@ -223,9 +227,7 @@ def _scores_query() -> Select[tuple[Score, Song, Sing]]:
     )
 
 
-async def _read_scores(
-    session: AsyncSession, query: Select[tuple[Score, Song, Sing]]
-) -> list[ScoreWithContext]:
+async def _read_scores(session: AsyncSession, query: Select) -> list[ScoreWithContext]:
     return [
         ScoreWithContext(
             **read_score(score).model_dump(),
