@@ -136,13 +136,18 @@ script reads it and passes it on:
 - The exe's version resource (Properties > Details) and the installer's `AppVersion`, its
   file name and the version Apps & features shows carry the string as is.
 - `VersionInfoVersion` and the exe's binary file version need four numbers, so the script
-  takes the leading numbers and pads them: `0.2.0` → `0.2.0.0`, `0.2.0rc1` → `0.2.0.0`.
+  takes the leading numbers and pads them: `0.2.0` → `0.2.0.0`, `0.2.0-rc.1` → `0.2.0.0`.
 
-The installer's downgrade check reads the version string itself the PEP 440 way
-(`PackedVersion` in the `.iss`): three release numbers, then a fourth ordering the suffix
-`.devN` < `aN` < `bN` < `rcN` < the release < `.postN`, so `0.2.0rc1` over an installed
-`0.2.0` warns as a downgrade and `0.2.0` over `0.2.0rc1` is a plain update. Only the first
-suffix counts, so `0.2.0rc1.dev2` reads as `0.2.0rc1`.
+Versions are written the semantic versioning way: `0.1.0-beta.1`, `0.1.0-beta.2`,
+`0.1.0-rc.1`, `0.1.0`. The build backend (hatchling) keeps the string as written, so the
+app, the file names and the tag all spell it alike. Python's own tools read the same
+string as `0.1.0b1`, which is where that spelling comes from should a tool print it.
+
+The installer's downgrade check (`PackedVersion` in the `.iss`) reads three release numbers,
+then a fourth ordering the suffix `dev` < `alpha` < `beta` < `rc` < the release < `post`
+(PEP 440's short forms `a`, `b`, `rc` and its `.devN` too), so `0.2.0-rc.1` over an installed
+`0.2.0` warns as a downgrade and `0.2.0` over `0.2.0-rc.1` is a plain update. Only the
+first suffix counts.
 
 ## The installer script
 
@@ -353,9 +358,9 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 
 ## Cutting a release
 
-Version numbers are PEP 440, because pip, the exe and the installer's downgrade check all
-read the same string: `0.1.0b1`, `0.1.0b2`, `0.1.0rc1`, `0.1.0`. Never `0.1.0-beta.1`. The
-tag is the version behind a `v`: `v0.1.0b1`.
+Version numbers are semantic versions ([Versions](#versions)): `0.1.0-beta.1`,
+`0.1.0-beta.2`, `0.1.0-rc.1`, `0.1.0`. The tag is the version behind a `v`:
+`v0.1.0-beta.1`.
 
 1. Make sure `main` is what ships: CI green on its last commit, nothing uncommitted.
 2. Bump `version` in `backend\pyproject.toml` (and nothing else), commit it as
@@ -363,8 +368,8 @@ tag is the version behind a `v`: `v0.1.0b1`.
 3. Tag that commit, annotated, and push the tag:
 
    ```powershell
-   git tag -a v0.1.0b1 -m "Ultrastar Wingman 0.1.0b1"
-   git push origin v0.1.0b1
+   git tag -a v0.1.0-beta.1 -m "Ultrastar Wingman 0.1.0-beta.1"
+   git push origin v0.1.0-beta.1
    ```
 
 4. Run `.\installer\build.ps1 -UsdxDir <USDX game directory>` on a clean checkout of the
@@ -386,7 +391,7 @@ tag is the version behind a `v`: `v0.1.0b1`.
    Get-FileHash <OutDir>\*.exe -Algorithm SHA256 | Format-Table Hash, @{n="File";e={Split-Path $_.Path -Leaf}}
    ```
 
-8. For a version with a suffix (`b`, `rc`), tick **Set as a pre-release**. Publish.
+8. For a version with a suffix (`-beta.N`, `-rc.N`), tick **Set as a pre-release**. Publish.
 
 A tag that is pushed is never moved. A build that turns out broken gets the next number
-(`0.1.0b2`), not a second `v0.1.0b1`.
+(`0.1.0-beta.2`), not a second `v0.1.0-beta.1`.
