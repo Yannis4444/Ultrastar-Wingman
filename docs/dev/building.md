@@ -138,10 +138,10 @@ script reads it and passes it on:
 - `VersionInfoVersion` and the exe's binary file version need four numbers, so the script
   takes the leading numbers and pads them: `0.2.0` → `0.2.0.0`, `0.2.0-rc.1` → `0.2.0.0`.
 
-Versions are written the semantic versioning way: `0.1.0-beta.1`, `0.1.0-beta.2`,
-`0.1.0-rc.1`, `0.1.0`. The build backend (hatchling) keeps the string as written, so the
+Versions are written the semantic versioning way: `2.0.0-beta.1`, `2.0.0-beta.2`,
+`2.0.0-rc.1`, `2.0.0`. The build backend (hatchling) keeps the string as written, so the
 app, the file names and the tag all spell it alike. Python's own tools read the same
-string as `0.1.0b1`, which is where that spelling comes from should a tool print it.
+string as `2.0.0b1`, which is where that spelling comes from should a tool print it.
 
 The installer's downgrade check (`PackedVersion` in the `.iss`) reads three release numbers,
 then a fourth ordering the suffix `dev` < `alpha` < `beta` < `rc` < the release < `post`
@@ -358,9 +358,9 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 
 ## Cutting a release
 
-Version numbers are semantic versions ([Versions](#versions)): `0.1.0-beta.1`,
-`0.1.0-beta.2`, `0.1.0-rc.1`, `0.1.0`. The tag is the version behind a `v`:
-`v0.1.0-beta.1`.
+Version numbers are semantic versions ([Versions](#versions)): `2.0.0-beta.1`,
+`2.0.0-beta.2`, `2.0.0-rc.1`, `2.0.0`. The tag is the version behind a `v`:
+`v2.0.0-beta.1`.
 
 1. Make sure `main` is what ships: CI green on its last commit, nothing uncommitted.
 2. Bump `version` in `backend\pyproject.toml` (and nothing else), commit it as
@@ -368,8 +368,8 @@ Version numbers are semantic versions ([Versions](#versions)): `0.1.0-beta.1`,
 3. Tag that commit, annotated, and push the tag:
 
    ```powershell
-   git tag -a v0.1.0-beta.1 -m "Ultrastar Wingman 0.1.0-beta.1"
-   git push origin v0.1.0-beta.1
+   git tag -a v2.0.0-beta.1 -m "Ultrastar Wingman 2.0.0-beta.1"
+   git push origin v2.0.0-beta.1
    ```
 
 4. Run `.\installer\build.ps1 -UsdxDir <USDX game directory>` on a clean checkout of the
@@ -394,4 +394,4 @@ Version numbers are semantic versions ([Versions](#versions)): `0.1.0-beta.1`,
 8. For a version with a suffix (`-beta.N`, `-rc.N`), tick **Set as a pre-release**. Publish.
 
 A tag that is pushed is never moved. A build that turns out broken gets the next number
-(`0.1.0-beta.2`), not a second `v0.1.0-beta.1`.
+(`2.0.0-beta.2`), not a second `v2.0.0-beta.1`.
