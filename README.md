@@ -50,13 +50,13 @@ from the [releases](https://github.com/Yannis4444/Ultrastar-Wingman/releases).
 2. Start Wingman. The host screen opens in your browser. Phones on the same
    network join through its QR code.
 3. Add your songs, and with Wingman alone, point it at Ultrastar Deluxe:
-   [Get started](docs/user/start/index.md).
+   [Get started](https://yannis4444.github.io/Ultrastar-Wingman/start/).
 
 > [!NOTE]
 > Wingman is in beta. Back up your data folder before you update, and report
 > what breaks in the [issues](https://github.com/Yannis4444/Ultrastar-Wingman/issues).
 
-Full guide: [`docs/user/`](docs/user/index.md).
+Full guide: <https://yannis4444.github.io/Ultrastar-Wingman/>
 
 ## Develop it
 
