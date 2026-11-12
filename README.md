@@ -9,6 +9,8 @@ for PC. Guests scan the QR code on the TV, then search songs, add wishes, and
 pick who sings, all on their own phone. Wingman starts the song in Ultrastar
 Deluxe and keeps the scores. Nothing to install on a phone, no account needed.
 
+**[Documentation](https://yannis4444.github.io/Ultrastar-Wingman/)** · **[Download](https://github.com/Yannis4444/Ultrastar-Wingman/releases)**
+
 ![The host screen on the TV after a song: the scores of the two singers, the QR code to join, tonight's standing, and the most wished song](docs/user/assets/screenshots/scores/host-results.png)
 
 <p align="center">
